@@ -8,7 +8,7 @@ public class Project {
 
     private final String id;
     private final long version;
-    private String data;
+    private final String data;
 
     public Project(String id, String data, long version) {
         this.id = id;

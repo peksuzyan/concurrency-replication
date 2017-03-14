@@ -19,11 +19,15 @@ public class SlaveController {
         this.id = ++lastId;
     }
 
-    public void postProject(String projectId, long version, String data) {
+    public int postProject(String projectId, long version, String data) {
+        if ((int) (Math.random() * 10) > 4) return 1;
+
         Project project = !projects.containsKey(projectId)
                 ? new Project(projectId, data)
                 : new Project(projectId, data, version);
         projects.put(projectId, project);
+
+        return 0;
     }
 
     public Collection<Project> getProjects() {
