@@ -1,4 +1,6 @@
-package com.gmail.eksuzyan.pavel.concurrency;
+package com.gmail.eksuzyan.pavel.concurrency.interact;
+
+import com.gmail.eksuzyan.pavel.concurrency.entity.Project;
 
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
@@ -20,10 +22,10 @@ public class Request {
     }
 
     public Request(Request request, int code) {
-        this(request.getSlaveId(), request.getProject(), request.getAttempt(), code);
+        this(request.getSlaveId(), request.getProject(), request.getAttempt() + 1, code);
     }
 
-    public Request(long slaveId, Project project, int attempt, int code) {
+    private Request(long slaveId, Project project, int attempt, int code) {
         this.project = project;
         this.slaveId = slaveId;
         this.attempt = attempt;
@@ -49,5 +51,16 @@ public class Request {
 
     public int getCode() {
         return code;
+    }
+
+    @Override
+    public String toString() {
+        return "Request{" +
+                "project=" + project +
+                ", slaveId=" + slaveId +
+                ", attempt=" + attempt +
+                ", code=" + code +
+                ", repeatDate=" + repeatDate +
+                '}';
     }
 }

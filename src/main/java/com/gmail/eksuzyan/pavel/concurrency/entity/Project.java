@@ -1,4 +1,4 @@
-package com.gmail.eksuzyan.pavel.concurrency;
+package com.gmail.eksuzyan.pavel.concurrency.entity;
 
 /**
  * @author Pavel Eksuzian.
@@ -30,5 +30,14 @@ public class Project {
 
     public String getData() {
         return data;
+    }
+
+    @Override
+    public String toString() {
+        return "Project{" +
+                "id='" + id + '\'' +
+                ", version=" + version +
+                ", data='" + data + '\'' +
+                '}';
     }
 }
