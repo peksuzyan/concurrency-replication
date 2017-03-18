@@ -1,7 +1,7 @@
 package com.gmail.eksuzyan.pavel.concurrency.controllers;
 
 import com.gmail.eksuzyan.pavel.concurrency.entity.Project;
-import com.gmail.eksuzyan.pavel.concurrency.interact.Request;
+import com.gmail.eksuzyan.pavel.concurrency.entity.Request;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

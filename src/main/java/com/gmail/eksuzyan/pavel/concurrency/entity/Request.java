@@ -1,6 +1,4 @@
-package com.gmail.eksuzyan.pavel.concurrency.interact;
-
-import com.gmail.eksuzyan.pavel.concurrency.entity.Project;
+package com.gmail.eksuzyan.pavel.concurrency.entity;
 
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
