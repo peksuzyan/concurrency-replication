@@ -1,7 +1,8 @@
-package com.gmail.eksuzyan.pavel.concurrency.entity;
+package com.gmail.eksuzyan.pavel.concurrency.entities;
 
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.Objects;
 
 /**
  * @author Pavel Eksuzian.
@@ -61,4 +62,37 @@ public class Request {
                 ", repeatDate=" + repeatDate +
                 '}';
     }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Request)) return false;
+        Request request = (Request) o;
+        return getSlaveId() == request.getSlaveId() &&
+                getAttempt() == request.getAttempt() &&
+                getCode() == request.getCode() &&
+                Objects.equals(getProject(), request.getProject()) &&
+                Objects.equals(getRepeatDate(), request.getRepeatDate());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(getProject(), getSlaveId(), getAttempt(), getCode(), getRepeatDate());
+    }
+    //    @Override
+//    public boolean equals(Object o) {
+//        if (this == o) return true;
+//        if (o == null || getClass() != o.getClass()) return false;
+//        Request request = (Request) o;
+//        return slaveId == request.slaveId &&
+//                attempt == request.attempt &&
+//                code == request.code &&
+//                Objects.equals(project, request.project) &&
+//                Objects.equals(repeatDate, request.repeatDate);
+//    }
+//
+//    @Override
+//    public int hashCode() {
+//        return Objects.hash(project, slaveId, attempt, code, repeatDate);
+//    }
 }
