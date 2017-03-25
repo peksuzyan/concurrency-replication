@@ -43,33 +43,4 @@ public class Project {
                 '}';
     }
 
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (!(o instanceof Project)) return false;
-        Project project = (Project) o;
-        return getVersion() == project.getVersion() &&
-                Objects.equals(getId(), project.getId()) &&
-                Objects.equals(getData(), project.getData());
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(getId(), getVersion(), getData());
-    }
-
-    //    @Override
-//    public boolean equals(Object o) {
-//        if (this == o) return true;
-//        if (o == null || getClass() != o.getClass()) return false;
-//        Project project = (Project) o;
-//        return version == project.version &&
-//                Objects.equals(id, project.id) &&
-//                Objects.equals(data, project.data);
-//    }
-//
-//    @Override
-//    public int hashCode() {
-//        return Objects.hash(id, version, data);
-//    }
 }

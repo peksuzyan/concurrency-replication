@@ -6,6 +6,7 @@ package com.gmail.eksuzyan.pavel.concurrency.stores;
  */
 public class PendingSlave extends Slave {
 
+    @Override
     public void postProject(String projectId, long version, String data) throws Exception {
         Thread.sleep((long) (Math.random() * 10000));
         super.postProject(projectId, version, data);

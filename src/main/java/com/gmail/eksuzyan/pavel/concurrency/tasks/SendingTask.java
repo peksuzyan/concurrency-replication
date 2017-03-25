@@ -5,7 +5,8 @@ import com.gmail.eksuzyan.pavel.concurrency.stores.Slave;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.NavigableSet;
+import java.time.LocalDateTime;
+import java.util.concurrent.BlockingQueue;
 
 /**
  * @author Pavel Eksuzian.
@@ -15,11 +16,13 @@ public class SendingTask implements Runnable {
 
     private final static Logger LOG = LoggerFactory.getLogger(SendingTask.class);
 
+    private static final int SLEEP_TIME_BEFORE_SEND = 500;
+
     private final Slave slave;
     private final Request request;
-    private final NavigableSet<Request> failedRequests;
+    private final BlockingQueue<Request> failedRequests;
 
-    public SendingTask(Slave slave, Request request, NavigableSet<Request> failedRequests) {
+    public SendingTask(Slave slave, Request request, BlockingQueue<Request> failedRequests) {
         this.slave = slave;
         this.request = request;
         this.failedRequests = failedRequests;
@@ -28,6 +31,9 @@ public class SendingTask implements Runnable {
     @Override
     public void run() {
         try {
+            while (!request.getRepeatDate().isBefore(LocalDateTime.now()))
+                Thread.sleep(SLEEP_TIME_BEFORE_SEND);
+
             slave.postProject(
                     request.getProject().getId(),
                     request.getProject().getVersion(),
@@ -35,12 +41,14 @@ public class SendingTask implements Runnable {
 
             LOG.debug("[+] => Slave #{} => {}.", request.getSlaveId(), request);
         } catch (Throwable e) {
-            if (failedRequests.add(request))
-                LOG.debug("[+] => failedRequests(size={}) => {}", failedRequests.size(), request);
-            else
-                LOG.debug("[-] => failedRequests(size={}) => {}", failedRequests.size(), request);
-
             LOG.debug("[-] => Slave #{} => {}.", request.getSlaveId(), request);
+
+            try {
+                failedRequests.put(new Request(request, 1));
+                LOG.debug("[+] => failedRequests => {}", request);
+            } catch (InterruptedException ex) {
+                LOG.error("Request has been lost due to unknown error.", ex);
+            }
         }
     }
 }

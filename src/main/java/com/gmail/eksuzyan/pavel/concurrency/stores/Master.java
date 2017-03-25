@@ -7,7 +7,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
-import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
@@ -20,7 +19,10 @@ public class Master implements Closeable {
 
     private final static Logger LOG = LoggerFactory.getLogger(Master.class);
 
-    private final Map<Long, Slave> slaves;
+    private static final int INITIAL_QUEUE_CAPACITY = 10;
+
+    public final Map<Long, Slave> slaves;
+
     private final Map<String, Project> projects = new HashMap<>();
 
     private final ExecutorService dispatcher = Executors.newCachedThreadPool();
@@ -28,10 +30,11 @@ public class Master implements Closeable {
     private final Comparator<Request> requestDateComparator =
             (r1, r2) -> r1.getRepeatDate().compareTo(r2.getRepeatDate());
 
-    private final BlockingQueue<Request> waitingRequests = new LinkedBlockingQueue<>();
+    private final BlockingQueue<Request> waitingRequests =
+            new LinkedBlockingQueue<>();
 
-    /* SHOULD BE NOT COMPARABLE BY DATE */
-    private final NavigableSet<Request> failedRequests = new ConcurrentSkipListSet<>(requestDateComparator);
+    private final BlockingQueue<Request> failedRequests =
+            new PriorityBlockingQueue<>(INITIAL_QUEUE_CAPACITY, requestDateComparator);
 
     public Master(Slave... slaves) {
         this.slaves = Arrays.stream(slaves)
@@ -53,7 +56,7 @@ public class Master implements Closeable {
                     Runnable task = new SendingTask(
                             slaves.get(request.getSlaveId()), request, failedRequests);
 
-                    dispatcher.execute(task);
+                    if (!dispatcher.isShutdown()) dispatcher.execute(task);
                 }
             } catch (InterruptedException e) {
                 LOG.error("Request has been lost due to unknown error.", e);
@@ -61,22 +64,20 @@ public class Master implements Closeable {
         });
 
         Thread backWorker = new Thread(() -> {
-//            Request request;
-//            try {
-//                while (!Thread.currentThread().isInterrupted()
-//                        && (request = failedRequests.pollFirst()) != null) {
-////                            && (request = failedRequests.first()) != null) {
-//                    if (request.getRepeatDate().isAfter(LocalDateTime.now())) {
-//                        waitingRequests.put(new Request(request, 1));
-////                        failedRequests.remove(request);
-//                    } else {
-//                        failedRequests.add(request);
-//                    }
-//                }
-//            } catch (InterruptedException e) {
-//                LOG.error("Request has been lost due to unknown error.", e);
-//            }
+            Request request;
+            try {
+                while (!Thread.currentThread().isInterrupted()) {
+                    request = failedRequests.take();
+
+                    waitingRequests.put(request);
+                }
+            } catch (InterruptedException e) {
+                LOG.error("Request has been lost due to unknown error.", e);
+            }
         });
+
+        postWorker.setName("postThread");
+        backWorker.setName("backThread");
 
         postWorker.setDaemon(true);
         backWorker.setDaemon(true);
@@ -96,7 +97,6 @@ public class Master implements Closeable {
         slaves.values().forEach(slave -> {
             try {
                 waitingRequests.put(new Request(slave.id, project));
-                LOG.debug("Request is added to waitingRequests queue on sending to Slave #{}.", slave.id);
             } catch (InterruptedException e) {
                 LOG.error("Request has been lost due to unknown error.", e);
             }
@@ -113,7 +113,18 @@ public class Master implements Closeable {
 
     @Override
     public void close() {
-        if (!dispatcher.isShutdown()) dispatcher.shutdown();
+
+        dispatcher.shutdown();
+
+        boolean isDone = false;
+
+        try {
+            isDone = dispatcher.awaitTermination(1, TimeUnit.MINUTES);
+        } catch (InterruptedException e) {
+            LOG.error("Request has been lost due to unknown error.", e);
+        }
+
+        LOG.info("Have dispatcher tasks been already completed? {}", isDone);
 
         if (slaves != null)
             slaves.values().forEach(Slave::close);

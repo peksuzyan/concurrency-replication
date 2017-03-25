@@ -29,7 +29,16 @@ public class Slave implements Closeable {
     }
 
     public void postProject(String projectId, long version, String data) throws Exception {
-        projects.put(projectId, new Project(projectId, data, version));
+
+        Project newProject = new Project(projectId, data, version);
+
+        Project oldProject = projects.putIfAbsent(projectId, newProject);
+
+        if (oldProject != null && oldProject != newProject
+                && oldProject.getVersion() < newProject.getVersion()) {
+            projects.replace(projectId, oldProject, newProject);
+        }
+
     }
 
     public Collection<Project> getProjects() {
