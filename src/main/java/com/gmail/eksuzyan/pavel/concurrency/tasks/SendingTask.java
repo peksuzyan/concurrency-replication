@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.concurrent.BlockingQueue;
 
 /**
@@ -15,8 +16,6 @@ import java.util.concurrent.BlockingQueue;
 public class SendingTask implements Runnable {
 
     private final static Logger LOG = LoggerFactory.getLogger(SendingTask.class);
-
-    private static final int SLEEP_TIME_BEFORE_SEND = 500;
 
     private final Slave slave;
     private final Request request;
@@ -31,8 +30,10 @@ public class SendingTask implements Runnable {
     @Override
     public void run() {
         try {
-            while (!request.getRepeatDate().isBefore(LocalDateTime.now()))
-                Thread.sleep(SLEEP_TIME_BEFORE_SEND);
+            LocalDateTime currentTime = LocalDateTime.now();
+
+            if (!request.getRepeatTime().isBefore(currentTime))
+                Thread.sleep(ChronoUnit.MILLIS.between(currentTime, request.getRepeatTime()));
 
             slave.postProject(
                     request.getProject().getId(),

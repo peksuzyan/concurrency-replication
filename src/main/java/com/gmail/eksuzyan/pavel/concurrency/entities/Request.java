@@ -40,7 +40,7 @@ public class Request {
         return slaveId;
     }
 
-    public LocalDateTime getRepeatDate() {
+    public LocalDateTime getRepeatTime() {
         return repeatDate;
     }
 

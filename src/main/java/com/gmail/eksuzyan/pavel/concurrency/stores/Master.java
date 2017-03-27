@@ -28,7 +28,7 @@ public class Master implements Closeable {
     private final ExecutorService dispatcher = Executors.newCachedThreadPool();
 
     private final Comparator<Request> requestDateComparator =
-            (r1, r2) -> r1.getRepeatDate().compareTo(r2.getRepeatDate());
+            (r1, r2) -> r1.getRepeatTime().compareTo(r2.getRepeatTime());
 
     private final BlockingQueue<Request> waitingRequests =
             new LinkedBlockingQueue<>();

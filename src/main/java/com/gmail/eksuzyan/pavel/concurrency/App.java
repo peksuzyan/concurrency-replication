@@ -18,7 +18,7 @@ public class App {
 
     private final static Logger LOG = LoggerFactory.getLogger(App.class);
 
-    private final static Duration DELAY = Duration.of(5, ChronoUnit.SECONDS);
+    private final static Duration DELAY = Duration.of(60, ChronoUnit.SECONDS);
 
     public static void main(String[] args) throws InterruptedException {
 
@@ -29,11 +29,23 @@ public class App {
                 new ThrowingSlave(),
                 new PendingSlave());
 
-        master.postProject("a4sf56", "hello, world!");
-        master.postProject("a4sf56", "can't stop!");
-        master.postProject("5asda21", "woooh!");
-        master.postProject("a4sf56", "ptptptptp");
-        master.postProject("ujyhyn3", "lallallalal");
+        master.postProject("England", "London");
+        master.postProject("Germany", "Berlin");
+        master.postProject("Russia", "Moscow");
+        master.postProject("USA", "Washington");
+        master.postProject("Italy", "Rome");
+        master.postProject("Russia", "Saint-Petersburg");
+        master.postProject("England", "Manchester");
+        master.postProject("Scotland", "Glasgow");
+        master.postProject("Russia", "Krasnodar");
+        master.postProject("Italy", "Milan");
+        master.postProject("France", "Paris");
+        master.postProject("Finland", "Helsinki");
+        master.postProject("Spain", "Madrid");
+        master.postProject("France", "Marcel");
+        master.postProject("Italy", "Verona");
+        master.postProject("Russia", "Vladivostok");
+        master.postProject("Spain", "Barcelona");
 
         Thread.sleep(DELAY.toMillis());
 
