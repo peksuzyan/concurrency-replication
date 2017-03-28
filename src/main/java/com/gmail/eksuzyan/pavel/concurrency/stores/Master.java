@@ -7,6 +7,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
@@ -148,15 +149,13 @@ public class Master implements Closeable {
         postWorker.interrupt();
         backWorker.interrupt();
 
-        boolean isDone = false;
-
         try {
-            isDone = dispatcher.awaitTermination(3, TimeUnit.MINUTES);
+            while (!dispatcher.awaitTermination(15, TimeUnit.SECONDS)) {
+                LOG.info("Dispatcher tasks haven't been yet completed.");
+            }
         } catch (InterruptedException e) {
             LOG.error("Main thread has been interrupted unexpectedly!", e);
         }
-
-        LOG.info("Have been dispatcher tasks already completed? {}", isDone);
 
         if (slaves != null)
             slaves.values().forEach(Slave::close);
