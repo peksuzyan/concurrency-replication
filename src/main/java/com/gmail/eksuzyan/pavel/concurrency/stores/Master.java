@@ -10,6 +10,7 @@ import java.io.Closeable;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * @author Pavel Eksuzian.
@@ -23,7 +24,7 @@ public class Master implements Closeable {
 
     public final Map<Long, Slave> slaves;
 
-    private final Map<String, Project> projects = new HashMap<>();
+    private final ConcurrentMap<String, Project> projects = new ConcurrentHashMap<>();
 
     private final ExecutorService dispatcher = Executors.newCachedThreadPool();
 
@@ -36,9 +37,12 @@ public class Master implements Closeable {
     private final BlockingQueue<Request> failedRequests =
             new PriorityBlockingQueue<>(INITIAL_QUEUE_CAPACITY, requestDateComparator);
 
+    private Thread postWorker;
+    private Thread backWorker;
+
     public Master(Slave... slaves) {
-        this.slaves = Arrays.stream(slaves)
-                .collect(Collectors.toMap(slave -> slave.id, slave -> slave));
+        this.slaves = Collections.unmodifiableMap(
+                Arrays.stream(slaves).collect(Collectors.toMap(slave -> slave.id, slave -> slave)));
 
         initWorkers();
 
@@ -47,7 +51,7 @@ public class Master implements Closeable {
 
     private void initWorkers() {
 
-        Thread postWorker = new Thread(() -> {
+        postWorker = new Thread(() -> {
             Request request;
             try {
                 while (!Thread.currentThread().isInterrupted()) {
@@ -57,30 +61,37 @@ public class Master implements Closeable {
                             slaves.get(request.getSlaveId()), request, failedRequests);
 
                     if (!dispatcher.isShutdown()) dispatcher.execute(task);
+                    else waitingRequests.put(request);
                 }
             } catch (InterruptedException e) {
-                LOG.error("Request has been lost due to unknown error.", e);
+                LOG.info("PostWorker has been collapsed due to thread interruption.");
             }
         });
 
-        Thread backWorker = new Thread(() -> {
-            Request request;
+        backWorker = new Thread(() -> {
+            Request request = null;
             try {
                 while (!Thread.currentThread().isInterrupted()) {
+                    request = null;
+
                     request = failedRequests.take();
 
                     waitingRequests.put(request);
                 }
             } catch (InterruptedException e) {
-                LOG.error("Request has been lost due to unknown error.", e);
+                if (request != null)
+                    try {
+                        failedRequests.put(request);
+                    } catch (InterruptedException ex) {
+                        LOG.error("Request has been lost due to unknown error.", ex);
+                    }
+
+                LOG.info("BackWorker has been collapsed due to thread interruption.");
             }
         });
 
         postWorker.setName("postThread");
         backWorker.setName("backThread");
-
-        postWorker.setDaemon(true);
-        backWorker.setDaemon(true);
 
         postWorker.start();
         backWorker.start();
@@ -89,16 +100,30 @@ public class Master implements Closeable {
     }
 
     public void postProject(String projectId, String data) {
-        final Project project = !projects.containsKey(projectId)
-                ? new Project(projectId, data)
-                : new Project(projectId, data, projects.get(projectId).getVersion() + 1L);
-        projects.put(projectId, project);
 
+        Project newProject = new Project(projectId, data);
+
+        Project oldProject = projects.putIfAbsent(projectId, newProject);
+
+        if (oldProject == null) {
+            postProjectToSlaves(newProject);
+        } else {
+            newProject = oldProject.setDataAndIncVersion(data);
+            boolean isReplaced = projects.replace(projectId, oldProject, newProject);
+            if (isReplaced) {
+                postProjectToSlaves(newProject);
+            } else {
+                postProject(projectId, data);
+            }
+        }
+    }
+
+    private void postProjectToSlaves(final Project project) {
         slaves.values().forEach(slave -> {
             try {
                 waitingRequests.put(new Request(slave.id, project));
             } catch (InterruptedException e) {
-                LOG.error("Request has been lost due to unknown error.", e);
+                LOG.error("Main thread has been interrupted unexpectedly!", e);
             }
         });
     }
@@ -108,7 +133,11 @@ public class Master implements Closeable {
     }
 
     public Collection<Request> getFailed() {
-        return failedRequests;
+        Stream<Request> waitingFailedRequests =
+                waitingRequests.stream().filter(request -> request.getAttempt() > 1);
+        return Stream
+                .concat(waitingFailedRequests, failedRequests.stream())
+                .collect(Collectors.toList());
     }
 
     @Override
@@ -116,15 +145,18 @@ public class Master implements Closeable {
 
         dispatcher.shutdown();
 
+        postWorker.interrupt();
+        backWorker.interrupt();
+
         boolean isDone = false;
 
         try {
-            isDone = dispatcher.awaitTermination(1, TimeUnit.MINUTES);
+            isDone = dispatcher.awaitTermination(3, TimeUnit.MINUTES);
         } catch (InterruptedException e) {
-            LOG.error("Request has been lost due to unknown error.", e);
+            LOG.error("Main thread has been interrupted unexpectedly!", e);
         }
 
-        LOG.info("Have dispatcher tasks been already completed? {}", isDone);
+        LOG.info("Have been dispatcher tasks already completed? {}", isDone);
 
         if (slaves != null)
             slaves.values().forEach(Slave::close);

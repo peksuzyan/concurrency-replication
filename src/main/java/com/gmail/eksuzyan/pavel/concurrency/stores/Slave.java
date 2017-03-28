@@ -6,8 +6,10 @@ import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.util.Collection;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * @author Pavel Eksuzian.
@@ -17,13 +19,14 @@ public class Slave implements Closeable {
 
     private final static Logger LOG = LoggerFactory.getLogger(Slave.class);
 
-    private static long lastId = 0L;
+    private static final AtomicLong counter = new AtomicLong(0L);
+
     public final long id;
 
     private final ConcurrentMap<String, Project> projects = new ConcurrentHashMap<>();
 
     public Slave() {
-        this.id = ++lastId;
+        this.id = counter.incrementAndGet();
 
         LOG.info("Slave #{} initialized.", id);
     }
@@ -34,7 +37,8 @@ public class Slave implements Closeable {
 
         Project oldProject = projects.putIfAbsent(projectId, newProject);
 
-        if (oldProject != null && oldProject != newProject
+        if (oldProject != null
+                && !Objects.equals(oldProject, newProject)
                 && oldProject.getVersion() < newProject.getVersion()) {
             projects.replace(projectId, oldProject, newProject);
         }

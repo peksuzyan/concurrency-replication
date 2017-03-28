@@ -18,7 +18,7 @@ public class App {
 
     private final static Logger LOG = LoggerFactory.getLogger(App.class);
 
-    private final static Duration DELAY = Duration.of(60, ChronoUnit.SECONDS);
+    private final static Duration DELAY = Duration.of(5, ChronoUnit.MINUTES);
 
     public static void main(String[] args) throws InterruptedException {
 

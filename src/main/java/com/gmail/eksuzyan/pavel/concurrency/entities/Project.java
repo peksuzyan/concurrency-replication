@@ -22,6 +22,10 @@ public class Project {
         this(id, data, 1L);
     }
 
+    public Project setDataAndIncVersion(String data) {
+        return new Project(id, data, version + 1L);
+    }
+
     public String getId() {
         return id;
     }
@@ -43,4 +47,18 @@ public class Project {
                 '}';
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Project)) return false;
+        Project project = (Project) o;
+        return version == project.version &&
+                Objects.equals(id, project.id) &&
+                Objects.equals(data, project.data);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id, version, data);
+    }
 }

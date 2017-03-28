@@ -45,7 +45,7 @@ public class SendingTask implements Runnable {
             LOG.debug("[-] => Slave #{} => {}.", request.getSlaveId(), request);
 
             try {
-                failedRequests.put(new Request(request, 1));
+                failedRequests.put(request.setCodeAndIncAttempt(1));
                 LOG.debug("[+] => failedRequests => {}", request);
             } catch (InterruptedException ex) {
                 LOG.error("Request has been lost due to unknown error.", ex);
