@@ -1,7 +1,7 @@
 package com.gmail.eksuzyan.pavel.concurrency.tasks;
 
 import com.gmail.eksuzyan.pavel.concurrency.entities.Request;
-import com.gmail.eksuzyan.pavel.concurrency.stores.Slave;
+import com.gmail.eksuzyan.pavel.concurrency.slave.Slave;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,9 +40,9 @@ public class SendingTask implements Runnable {
                     request.getProject().getVersion(),
                     request.getProject().getData());
 
-            LOG.debug("[+] => Slave #{} => {}.", request.getSlaveId(), request);
+            LOG.debug("[+] => {} => {}.", request.getSlave(), request);
         } catch (Throwable e) {
-            LOG.debug("[-] => Slave #{} => {}.", request.getSlaveId(), request);
+            LOG.debug("[-] => {} => {}.", request.getSlave(), request);
 
             try {
                 failedRequests.put(request.setCodeAndIncAttempt(1));

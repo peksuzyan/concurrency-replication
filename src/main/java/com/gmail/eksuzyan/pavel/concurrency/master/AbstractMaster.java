@@ -1,29 +1,48 @@
-package com.gmail.eksuzyan.pavel.concurrency.stores;
+package com.gmail.eksuzyan.pavel.concurrency.master;
 
 import com.gmail.eksuzyan.pavel.concurrency.entities.Project;
 import com.gmail.eksuzyan.pavel.concurrency.entities.Request;
+import com.gmail.eksuzyan.pavel.concurrency.slave.Slave;
 import com.gmail.eksuzyan.pavel.concurrency.tasks.SendingTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.Closeable;
-import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
+ * Presents a base implementation of master interface.
+ *
  * @author Pavel Eksuzian.
- *         Created: 12.03.2017.
+ *         Created: 04.04.2017.
  */
-public class Master implements Closeable {
+public abstract class AbstractMaster implements Master {
 
-    private final static Logger LOG = LoggerFactory.getLogger(Master.class);
+    /**
+     * Ordinary logger.
+     */
+    private final static Logger LOG = LoggerFactory.getLogger(AbstractMaster.class);
+
+    /**
+     * Counter serves to generate unique master ID.
+     */
+    private static long masterCounter = 0L;
+
+    /**
+     * Default master name.
+     */
+    private static final String defaultName = "Master";
+
+    /**
+     * Master name.
+     */
+    private String name;
 
     private static final int INITIAL_QUEUE_CAPACITY = 10;
 
-    public final Map<Long, Slave> slaves;
+    private final Map<String, Slave> slaves;
 
     private final ConcurrentMap<String, Project> projects = new ConcurrentHashMap<>();
 
@@ -41,13 +60,29 @@ public class Master implements Closeable {
     private Thread postWorker;
     private Thread backWorker;
 
-    public Master(Slave... slaves) {
-        this.slaves = Collections.unmodifiableMap(
-                Arrays.stream(slaves).collect(Collectors.toMap(slave -> slave.id, slave -> slave)));
+    /**
+     * Single constructor.
+     *
+     * @param name   master name
+     * @param slaves slaves
+     */
+    protected AbstractMaster(String name, Slave... slaves) {
+        long id = ++masterCounter;
+        this.name = (name == null || name.trim().isEmpty())
+                ? String.format("%s-%d", defaultName, id) : name;
+
+        try {
+            this.slaves = (slaves == null || slaves.length == 0)
+                    ? Collections.emptyMap()
+                    : Collections.unmodifiableMap(
+                            Arrays.stream(slaves).collect(Collectors.toMap(Slave::getName, slave -> slave)));
+        } catch (IllegalStateException e) {
+            throw new IllegalArgumentException("Slaves have the same names!", e);
+        }
 
         initWorkers();
 
-        LOG.info("Master initialized.");
+        LOG.info("{} initialized.", getName());
     }
 
     private void initWorkers() {
@@ -59,13 +94,13 @@ public class Master implements Closeable {
                     request = waitingRequests.take();
 
                     Runnable task = new SendingTask(
-                            slaves.get(request.getSlaveId()), request, failedRequests);
+                            slaves.get(request.getSlave()), request, failedRequests);
 
                     if (!dispatcher.isShutdown()) dispatcher.execute(task);
                     else waitingRequests.put(request);
                 }
             } catch (InterruptedException e) {
-                LOG.info("PostWorker has been collapsed due to thread interruption.");
+                LOG.info("{} PostWorker has been collapsed due to thread interruption.", getName());
             }
         });
 
@@ -87,21 +122,24 @@ public class Master implements Closeable {
                         LOG.error("Request has been lost due to unknown error.", ex);
                     }
 
-                LOG.info("BackWorker has been collapsed due to thread interruption.");
+                LOG.info("{} BackWorker has been collapsed due to thread interruption.", getName());
             }
         });
 
-        postWorker.setName("postThread");
-        backWorker.setName("backThread");
+        postWorker.setName(getName() + "-postThread");
+        backWorker.setName(getName() + "-backThread");
 
         postWorker.start();
         backWorker.start();
-
-        LOG.info("Workers initialized.");
     }
 
-    public void postProject(String projectId, String data) {
-
+    /**
+     * Posts project to inner store and related slaves.
+     *
+     * @param projectId project id
+     * @param data      project data
+     */
+    protected void postProjectV(String projectId, String data) {
         Project newProject = new Project(projectId, data);
 
         Project oldProject = projects.putIfAbsent(projectId, newProject);
@@ -122,18 +160,28 @@ public class Master implements Closeable {
     private void postProjectToSlaves(final Project project) {
         slaves.values().forEach(slave -> {
             try {
-                waitingRequests.put(new Request(slave.id, project));
+                waitingRequests.put(new Request(slave.getName(), project));
             } catch (InterruptedException e) {
                 LOG.error("Main thread has been interrupted unexpectedly!", e);
             }
         });
     }
 
-    public Collection<Project> getProjects() {
+    /**
+     * Returns stored projects.
+     *
+     * @return projects
+     */
+    protected Collection<Project> getProjectsV() {
         return projects.values();
     }
 
-    public Collection<Request> getFailed() {
+    /**
+     * Returns failed requests.
+     *
+     * @return requests
+     */
+    protected Collection<Request> getFailedV() {
         Stream<Request> waitingFailedRequests =
                 waitingRequests.stream().filter(request -> request.getAttempt() > 1);
         return Stream
@@ -141,9 +189,10 @@ public class Master implements Closeable {
                 .collect(Collectors.toList());
     }
 
-    @Override
-    public void close() {
-
+    /**
+     * Stops workers and thread pool.
+     */
+    protected void shutdown() {
         dispatcher.shutdown();
 
         postWorker.interrupt();
@@ -151,15 +200,42 @@ public class Master implements Closeable {
 
         try {
             while (!dispatcher.awaitTermination(15, TimeUnit.SECONDS)) {
-                LOG.info("Dispatcher tasks haven't been yet completed.");
+                LOG.info("{}: Dispatcher tasks haven't been yet completed.", getName());
             }
         } catch (InterruptedException e) {
             LOG.error("Main thread has been interrupted unexpectedly!", e);
         }
 
-        if (slaves != null)
-            slaves.values().forEach(Slave::close);
+        LOG.info("{} closed.", getName());
+    }
 
-        LOG.info("Master closed.");
+    /**
+     * Sets master name.
+     *
+     * @param name master name
+     */
+    @Override
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    /**
+     * Returns master name.
+     *
+     * @return master name
+     */
+    @Override
+    public String getName() {
+        return name;
+    }
+
+    /**
+     * Returns slaves which are related to this master instance.
+     *
+     * @return a set of slaves
+     */
+    @Override
+    public Collection<Slave> getSlaves() {
+        return slaves.values();
     }
 }

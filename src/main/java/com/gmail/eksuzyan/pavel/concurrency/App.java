@@ -1,9 +1,9 @@
 package com.gmail.eksuzyan.pavel.concurrency;
 
-import com.gmail.eksuzyan.pavel.concurrency.stores.Master;
-import com.gmail.eksuzyan.pavel.concurrency.stores.PendingSlave;
-import com.gmail.eksuzyan.pavel.concurrency.stores.Slave;
-import com.gmail.eksuzyan.pavel.concurrency.stores.ThrowingSlave;
+import com.gmail.eksuzyan.pavel.concurrency.master.impl.HealthyMaster;
+import com.gmail.eksuzyan.pavel.concurrency.slave.impl.HealthySlave;
+import com.gmail.eksuzyan.pavel.concurrency.slave.impl.PendingSlave;
+import com.gmail.eksuzyan.pavel.concurrency.slave.impl.ThrowingSlave;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -24,10 +24,12 @@ public class App {
 
         Thread.currentThread().setName("mainThread");
 
-        Master master = new Master(
-                new Slave(),
+        HealthyMaster master = new HealthyMaster(
+                new HealthySlave("adasdada"),
                 new ThrowingSlave(),
-                new PendingSlave());
+                new PendingSlave(),
+                new HealthySlave(),
+                new HealthySlave("adasdada"));
 
         master.postProject("England", "London");
         master.postProject("Germany", "Berlin");
@@ -51,12 +53,12 @@ public class App {
 
         master.close();
 
-        System.out.println("======================= MASTER =======================");
+        System.out.println("======================= " + master.getName().toUpperCase() + " =======================");
         System.out.println("Projects:  \r\n" + master.getProjects().toString());
         System.out.println("Failed:    \r\n" + master.getFailed().toString());
 
-        master.slaves.values().forEach(slave -> {
-            System.out.println("======================= SLAVE #" + slave.id + " =======================");
+        master.getSlaves().forEach(slave -> {
+            System.out.println("======================= " + slave.getName().toUpperCase() + " =======================");
             System.out.println("Projects:  \r\n" + slave.getProjects().toString());
         });
 

@@ -11,33 +11,33 @@ import java.util.Objects;
 public class Request {
 
     private final Project project;
-    private final long slaveId;
+    private final String slave;
     private final int attempt;
     private final int code;
     private final LocalDateTime repeatDate;
 
-    public Request(long slaveId, Project project) {
-        this(slaveId, project, 1, 0);
+    public Request(String slave, Project project) {
+        this(slave, project, 1, 0);
     }
 
-    private Request(long slaveId, Project project, int attempt, int code) {
+    private Request(String slave, Project project, int attempt, int code) {
         this.project = project;
-        this.slaveId = slaveId;
+        this.slave = slave;
         this.attempt = attempt;
         this.code = code;
         this.repeatDate = LocalDateTime.now().plus(1 << (attempt - 1), ChronoUnit.SECONDS);
     }
 
     public Request setCodeAndIncAttempt(int code) {
-        return new Request(slaveId, project, attempt + 1, code);
+        return new Request(slave, project, attempt + 1, code);
     }
 
     public Project getProject() {
         return project;
     }
 
-    public long getSlaveId() {
-        return slaveId;
+    public String getSlave() {
+        return slave;
     }
 
     public LocalDateTime getRepeatTime() {
@@ -52,7 +52,7 @@ public class Request {
     public String toString() {
         return "Request{" +
                 "project=" + project +
-                ", id=" + slaveId +
+                ", slave='" + slave + '\'' +
                 ", attempt=" + attempt +
                 ", code=" + code +
                 ", repeatDate=" + repeatDate +
@@ -64,15 +64,15 @@ public class Request {
         if (this == o) return true;
         if (!(o instanceof Request)) return false;
         Request request = (Request) o;
-        return slaveId == request.slaveId &&
-                attempt == request.attempt &&
+        return attempt == request.attempt &&
                 code == request.code &&
                 Objects.equals(project, request.project) &&
+                Objects.equals(slave, request.slave) &&
                 Objects.equals(repeatDate, request.repeatDate);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(project, slaveId, attempt, code, repeatDate);
+        return Objects.hash(project, slave, attempt, code, repeatDate);
     }
 }
