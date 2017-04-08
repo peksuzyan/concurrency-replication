@@ -10,11 +10,11 @@ import java.util.Objects;
  */
 public class Request {
 
-    private final Project project;
-    private final String slave;
-    private final int attempt;
-    private final int code;
-    private final LocalDateTime repeatDate;
+    public final Project project;
+    public final String slave;
+    public final int attempt;
+    public final int code;
+    public final LocalDateTime repeatDate;
 
     public Request(String slave, Project project) {
         this(slave, project, 1, 0);
@@ -30,22 +30,6 @@ public class Request {
 
     public Request setCodeAndIncAttempt(int code) {
         return new Request(slave, project, attempt + 1, code);
-    }
-
-    public Project getProject() {
-        return project;
-    }
-
-    public String getSlave() {
-        return slave;
-    }
-
-    public LocalDateTime getRepeatTime() {
-        return repeatDate;
-    }
-
-    public int getAttempt() {
-        return attempt;
     }
 
     @Override

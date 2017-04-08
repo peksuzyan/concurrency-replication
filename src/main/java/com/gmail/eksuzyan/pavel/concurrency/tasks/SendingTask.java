@@ -32,17 +32,17 @@ public class SendingTask implements Runnable {
         try {
             LocalDateTime currentTime = LocalDateTime.now();
 
-            if (!request.getRepeatTime().isBefore(currentTime))
-                Thread.sleep(ChronoUnit.MILLIS.between(currentTime, request.getRepeatTime()));
+            if (!request.repeatDate.isBefore(currentTime))
+                Thread.sleep(ChronoUnit.MILLIS.between(currentTime, request.repeatDate));
 
             slave.postProject(
-                    request.getProject().id,
-                    request.getProject().version,
-                    request.getProject().data);
+                    request.project.id,
+                    request.project.version,
+                    request.project.data);
 
-            LOG.debug("[+] => {} => {}.", request.getSlave(), request);
+            LOG.debug("[+] => {} => {}.", request.slave, request);
         } catch (Throwable e) {
-            LOG.debug("[-] => {} => {}.", request.getSlave(), request);
+            LOG.debug("[-] => {} => {}.", request.slave, request);
 
             try {
                 failedRequests.put(request.setCodeAndIncAttempt(1));

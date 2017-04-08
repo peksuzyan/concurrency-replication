@@ -49,7 +49,7 @@ public abstract class AbstractMaster implements Master {
     private final ExecutorService dispatcher = Executors.newCachedThreadPool();
 
     private final Comparator<Request> requestDateComparator =
-            (r1, r2) -> r1.getRepeatTime().compareTo(r2.getRepeatTime());
+            (r1, r2) -> r1.repeatDate.compareTo(r2.repeatDate);
 
     private final BlockingQueue<Message> entryMessages =
             new LinkedBlockingQueue<>();
@@ -160,10 +160,10 @@ public abstract class AbstractMaster implements Master {
 
     private void deliverToExecutor(Request request) {
         Runnable task = new SendingTask(
-                slaves.get(request.getSlave()), request, failedRequests);
+                slaves.get(request.slave), request, failedRequests);
 
         if (!dispatcher.isShutdown()) dispatcher.execute(task);
-        else if (request.getAttempt() > 1)
+        else if (request.attempt > 1)
             try {
                 failedRequests.put(request);
             } catch (InterruptedException e) {
