@@ -29,7 +29,7 @@ public class HealthyMaster extends AbstractMaster {
      */
     @Override
     public void postProject(String projectId, String data) {
-        postProjectV(projectId, data);
+        postProjectDefault(projectId, data);
     }
 
     /**
@@ -39,7 +39,7 @@ public class HealthyMaster extends AbstractMaster {
      */
     @Override
     public Collection<Project> getProjects() {
-        return getProjectsV();
+        return getProjectsDefault();
     }
 
     /**
@@ -49,11 +49,11 @@ public class HealthyMaster extends AbstractMaster {
      */
     @Override
     public Collection<Request> getFailed() {
-        return getFailedV();
+        return getFailedDefault();
     }
 
     @Override
     public void close() {
-        shutdown();
+        shutdownDefault();
     }
 }

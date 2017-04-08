@@ -36,9 +36,9 @@ public class SendingTask implements Runnable {
                 Thread.sleep(ChronoUnit.MILLIS.between(currentTime, request.getRepeatTime()));
 
             slave.postProject(
-                    request.getProject().getId(),
-                    request.getProject().getVersion(),
-                    request.getProject().getData());
+                    request.getProject().id,
+                    request.getProject().version,
+                    request.getProject().data);
 
             LOG.debug("[+] => {} => {}.", request.getSlave(), request);
         } catch (Throwable e) {

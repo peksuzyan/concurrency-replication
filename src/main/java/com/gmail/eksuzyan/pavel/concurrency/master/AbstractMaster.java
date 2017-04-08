@@ -1,5 +1,6 @@
 package com.gmail.eksuzyan.pavel.concurrency.master;
 
+import com.gmail.eksuzyan.pavel.concurrency.entities.Message;
 import com.gmail.eksuzyan.pavel.concurrency.entities.Project;
 import com.gmail.eksuzyan.pavel.concurrency.entities.Request;
 import com.gmail.eksuzyan.pavel.concurrency.slave.Slave;
@@ -10,7 +11,6 @@ import org.slf4j.LoggerFactory;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 /**
  * Presents a base implementation of master interface.
@@ -44,21 +44,21 @@ public abstract class AbstractMaster implements Master {
 
     private final Map<String, Slave> slaves;
 
-    private final ConcurrentMap<String, Project> projects = new ConcurrentHashMap<>();
+    private final Map<String, Project> projects = new HashMap<>();
 
     private final ExecutorService dispatcher = Executors.newCachedThreadPool();
 
     private final Comparator<Request> requestDateComparator =
             (r1, r2) -> r1.getRepeatTime().compareTo(r2.getRepeatTime());
 
-    private final BlockingQueue<Request> waitingRequests =
+    private final BlockingQueue<Message> entryMessages =
             new LinkedBlockingQueue<>();
 
     private final BlockingQueue<Request> failedRequests =
             new PriorityBlockingQueue<>(INITIAL_QUEUE_CAPACITY, requestDateComparator);
 
-    private Thread postWorker;
     private Thread backWorker;
+    private Thread prepareWorker;
 
     /**
      * Single constructor.
@@ -75,7 +75,9 @@ public abstract class AbstractMaster implements Master {
             this.slaves = (slaves == null || slaves.length == 0)
                     ? Collections.emptyMap()
                     : Collections.unmodifiableMap(
-                            Arrays.stream(slaves).collect(Collectors.toMap(Slave::getName, slave -> slave)));
+                    Arrays.stream(slaves)
+                            .collect(Collectors.toMap(
+                                    Slave::getName, slave -> slave)));
         } catch (IllegalStateException e) {
             throw new IllegalArgumentException("Slaves have the same names!", e);
         }
@@ -87,23 +89,6 @@ public abstract class AbstractMaster implements Master {
 
     private void initWorkers() {
 
-        postWorker = new Thread(() -> {
-            Request request;
-            try {
-                while (!Thread.currentThread().isInterrupted()) {
-                    request = waitingRequests.take();
-
-                    Runnable task = new SendingTask(
-                            slaves.get(request.getSlave()), request, failedRequests);
-
-                    if (!dispatcher.isShutdown()) dispatcher.execute(task);
-                    else waitingRequests.put(request);
-                }
-            } catch (InterruptedException e) {
-                LOG.info("{} PostWorker has been collapsed due to thread interruption.", getName());
-            }
-        });
-
         backWorker = new Thread(() -> {
             Request request = null;
             try {
@@ -112,25 +97,33 @@ public abstract class AbstractMaster implements Master {
 
                     request = failedRequests.take();
 
-                    waitingRequests.put(request);
+                    if (request != null) deliverToExecutor(request);
                 }
             } catch (InterruptedException e) {
-                if (request != null)
-                    try {
-                        failedRequests.put(request);
-                    } catch (InterruptedException ex) {
-                        LOG.error("Request has been lost due to unknown error.", ex);
-                    }
-
                 LOG.info("{} BackWorker has been collapsed due to thread interruption.", getName());
             }
         });
 
-        postWorker.setName(getName() + "-postThread");
-        backWorker.setName(getName() + "-backThread");
+        prepareWorker = new Thread(() -> {
+            Message message = null;
+            try {
+                while (!Thread.currentThread().isInterrupted()) {
+                    message = null;
 
-        postWorker.start();
+                    message = entryMessages.take();
+
+                    if (message != null) prepareProject(message);
+                }
+            } catch (InterruptedException e) {
+                LOG.info("{} PrepareWorker has been collapsed due to thread interruption.", getName());
+            }
+        });
+
+        backWorker.setName(getName() + "-backThread");
+        prepareWorker.setName(getName() + "-prepareThread");
+
         backWorker.start();
+        prepareWorker.start();
     }
 
     /**
@@ -139,32 +132,43 @@ public abstract class AbstractMaster implements Master {
      * @param projectId project id
      * @param data      project data
      */
-    protected void postProjectV(String projectId, String data) {
-        Project newProject = new Project(projectId, data);
+    protected void postProjectDefault(String projectId, String data) {
 
-        Project oldProject = projects.putIfAbsent(projectId, newProject);
-
-        if (oldProject == null) {
-            postProjectToSlaves(newProject);
-        } else {
-            newProject = oldProject.setDataAndIncVersion(data);
-            boolean isReplaced = projects.replace(projectId, oldProject, newProject);
-            if (isReplaced) {
-                postProjectToSlaves(newProject);
-            } else {
-                postProject(projectId, data);
-            }
+        final Message message = new Message(projectId, data);
+        try {
+            entryMessages.put(message);
+        } catch (InterruptedException e) {
+            LOG.error("Client thread couldn't put {} into entry queue!", message);
         }
     }
 
-    private void postProjectToSlaves(final Project project) {
-        slaves.values().forEach(slave -> {
+    private void prepareProject(Message message) {
+
+        Project newProject = !projects.containsKey(message.projectId)
+                ? new Project(message.projectId, message.data)
+                : projects.get(message.projectId).setDataAndIncVersion(message.data);
+
+        projects.put(message.projectId, newProject);
+
+        prepareProjectToSlaves(newProject);
+    }
+
+    private void prepareProjectToSlaves(final Project project) {
+        slaves.values().forEach(slave ->
+                deliverToExecutor(new Request(slave.getName(), project)));
+    }
+
+    private void deliverToExecutor(Request request) {
+        Runnable task = new SendingTask(
+                slaves.get(request.getSlave()), request, failedRequests);
+
+        if (!dispatcher.isShutdown()) dispatcher.execute(task);
+        else if (request.getAttempt() > 1)
             try {
-                waitingRequests.put(new Request(slave.getName(), project));
+                failedRequests.put(request);
             } catch (InterruptedException e) {
-                LOG.error("Main thread has been interrupted unexpectedly!", e);
+                LOG.error(Thread.currentThread().getName() + " has been interrupted unexpectedly!", e);
             }
-        });
     }
 
     /**
@@ -172,7 +176,7 @@ public abstract class AbstractMaster implements Master {
      *
      * @return projects
      */
-    protected Collection<Project> getProjectsV() {
+    protected Collection<Project> getProjectsDefault() {
         return projects.values();
     }
 
@@ -181,22 +185,19 @@ public abstract class AbstractMaster implements Master {
      *
      * @return requests
      */
-    protected Collection<Request> getFailedV() {
-        Stream<Request> waitingFailedRequests =
-                waitingRequests.stream().filter(request -> request.getAttempt() > 1);
-        return Stream
-                .concat(waitingFailedRequests, failedRequests.stream())
-                .collect(Collectors.toList());
+    protected Collection<Request> getFailedDefault() {
+        return failedRequests;
     }
 
     /**
      * Stops workers and thread pool.
      */
-    protected void shutdown() {
-        dispatcher.shutdown();
+    protected void shutdownDefault() {
 
-        postWorker.interrupt();
         backWorker.interrupt();
+        prepareWorker.interrupt();
+
+        dispatcher.shutdown();
 
         try {
             while (!dispatcher.awaitTermination(15, TimeUnit.SECONDS)) {

@@ -21,12 +21,12 @@ public class HealthySlave extends AbstractSlave {
 
     @Override
     public void postProject(String projectId, long version, String data) throws Exception {
-        postProjectV(projectId, version, data);
+        postProjectDefault(projectId, version, data);
     }
 
     @Override
     public Collection<Project> getProjects() {
-        return getProjectsV();
+        return getProjectsDefault();
     }
 
     @Override

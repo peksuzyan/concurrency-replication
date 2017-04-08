@@ -63,14 +63,14 @@ public abstract class AbstractSlave implements Slave {
      * @param version   project version
      * @param data      project data
      */
-    protected final void postProjectV(String projectId, long version, String data) {
+    protected final void postProjectDefault(String projectId, long version, String data) {
         Project newProject = new Project(projectId, data, version);
 
         Project oldProject = projects.putIfAbsent(projectId, newProject);
 
-        if (oldProject != null
+        if (Objects.nonNull(oldProject)
                 && !Objects.equals(oldProject, newProject)
-                && oldProject.getVersion() < newProject.getVersion()) {
+                && oldProject.version < newProject.version) {
             projects.replace(projectId, oldProject, newProject);
         }
     }
@@ -80,7 +80,7 @@ public abstract class AbstractSlave implements Slave {
      *
      * @return a set of projects
      */
-    protected final Collection<Project> getProjectsV() {
+    protected final Collection<Project> getProjectsDefault() {
         return projects.values();
     }
 }

@@ -8,9 +8,9 @@ import java.util.Objects;
  */
 public class Project {
 
-    private final String id;
-    private final long version;
-    private final String data;
+    public final String id;
+    public final long version;
+    public final String data;
 
     public Project(String id, String data, long version) {
         this.id = id;
@@ -24,18 +24,6 @@ public class Project {
 
     public Project setDataAndIncVersion(String data) {
         return new Project(id, data, version + 1L);
-    }
-
-    public String getId() {
-        return id;
-    }
-
-    public long getVersion() {
-        return version;
-    }
-
-    public String getData() {
-        return data;
     }
 
     @Override
