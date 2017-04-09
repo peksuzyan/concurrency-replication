@@ -1,0 +1,2 @@
+1. decrease a waiting time when requests are being put into failed queue
+2. replace streams on parallel streams where it will be useful

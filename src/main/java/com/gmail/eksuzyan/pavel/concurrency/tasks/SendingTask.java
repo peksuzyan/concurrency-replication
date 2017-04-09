@@ -30,11 +30,6 @@ public class SendingTask implements Runnable {
     @Override
     public void run() {
         try {
-            LocalDateTime currentTime = LocalDateTime.now();
-
-            if (!request.repeatDate.isBefore(currentTime))
-                Thread.sleep(ChronoUnit.MILLIS.between(currentTime, request.repeatDate));
-
             slave.postProject(
                     request.project.id,
                     request.project.version,

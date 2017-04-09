@@ -1,2 +1,0 @@
-1. performance of master's postProject method depends on count of slaves
-2. reduce getters methods of final fields

@@ -8,6 +8,8 @@ import com.gmail.eksuzyan.pavel.concurrency.tasks.SendingTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
@@ -40,13 +42,15 @@ public abstract class AbstractMaster implements Master {
      */
     private String name;
 
-    private static final int INITIAL_QUEUE_CAPACITY = 10;
+    private static final int INITIAL_QUEUE_CAPACITY = 100;
+    private static final int THREAD_POOL_SIZE = 4;
 
     private final Map<String, Slave> slaves;
 
     private final Map<String, Project> projects = new HashMap<>();
 
-    private final ExecutorService dispatcher = Executors.newCachedThreadPool();
+    private final ScheduledExecutorService dispatcher =
+            Executors.newScheduledThreadPool(THREAD_POOL_SIZE);
 
     private final Comparator<Request> requestDateComparator =
             (r1, r2) -> r1.repeatDate.compareTo(r2.repeatDate);
@@ -57,7 +61,7 @@ public abstract class AbstractMaster implements Master {
     private final BlockingQueue<Request> failedRequests =
             new PriorityBlockingQueue<>(INITIAL_QUEUE_CAPACITY, requestDateComparator);
 
-    private Thread backWorker;
+    private Thread restoreWorker;
     private Thread prepareWorker;
 
     /**
@@ -72,14 +76,18 @@ public abstract class AbstractMaster implements Master {
                 ? String.format("%s-%d", defaultName, id) : name;
 
         try {
-            this.slaves = (slaves == null || slaves.length == 0)
-                    ? Collections.emptyMap()
-                    : Collections.unmodifiableMap(
-                    Arrays.stream(slaves)
-                            .collect(Collectors.toMap(
-                                    Slave::getName, slave -> slave)));
+            this.slaves =
+                    (slaves == null || slaves.length == 0)
+                            ? Collections.emptyMap()
+                            : Collections.unmodifiableMap(
+                            Arrays.stream(slaves)
+                                    .peek(Objects::requireNonNull)
+                                    .collect(Collectors.toMap(
+                                            Slave::getName, slave -> slave)));
         } catch (IllegalStateException e) {
             throw new IllegalArgumentException("Slaves have the same names!", e);
+        } catch (NullPointerException e) {
+            throw new IllegalArgumentException("Slave mustn't be null!", e);
         }
 
         initWorkers();
@@ -89,7 +97,7 @@ public abstract class AbstractMaster implements Master {
 
     private void initWorkers() {
 
-        backWorker = new Thread(() -> {
+        restoreWorker = new Thread(() -> {
             Request request = null;
             try {
                 while (!Thread.currentThread().isInterrupted()) {
@@ -115,14 +123,14 @@ public abstract class AbstractMaster implements Master {
                     if (message != null) prepareProject(message);
                 }
             } catch (InterruptedException e) {
-                LOG.info("{} PrepareWorker has been collapsed due to thread interruption.", getName());
+                LOG.info("{} RestoreWorker has been collapsed due to thread interruption.", getName());
             }
         });
 
-        backWorker.setName(getName() + "-backThread");
+        restoreWorker.setName(getName() + "-restoreThread");
         prepareWorker.setName(getName() + "-prepareThread");
 
-        backWorker.start();
+        restoreWorker.start();
         prepareWorker.start();
     }
 
@@ -135,6 +143,7 @@ public abstract class AbstractMaster implements Master {
     protected void postProjectDefault(String projectId, String data) {
 
         final Message message = new Message(projectId, data);
+
         try {
             entryMessages.put(message);
         } catch (InterruptedException e) {
@@ -162,13 +171,22 @@ public abstract class AbstractMaster implements Master {
         Runnable task = new SendingTask(
                 slaves.get(request.slave), request, failedRequests);
 
-        if (!dispatcher.isShutdown()) dispatcher.execute(task);
-        else if (request.attempt > 1)
+        if (!dispatcher.isShutdown())
+            dispatcher.schedule(
+                    task,
+                    getDelayBetweenDates(request.repeatDate, LocalDateTime.now()),
+                    TimeUnit.MILLISECONDS);
+        else
             try {
                 failedRequests.put(request);
             } catch (InterruptedException e) {
                 LOG.error(Thread.currentThread().getName() + " has been interrupted unexpectedly!", e);
             }
+    }
+
+    private long getDelayBetweenDates(LocalDateTime executionTime, LocalDateTime currentTime) {
+        return executionTime.isBefore(currentTime)
+                ? 0L : ChronoUnit.MILLIS.between(currentTime, executionTime);
     }
 
     /**
@@ -186,7 +204,9 @@ public abstract class AbstractMaster implements Master {
      * @return requests
      */
     protected Collection<Request> getFailedDefault() {
-        return failedRequests;
+        return failedRequests.stream()
+                .filter(r -> r.attempt > 1)
+                .collect(Collectors.toList());
     }
 
     /**
@@ -194,14 +214,14 @@ public abstract class AbstractMaster implements Master {
      */
     protected void shutdownDefault() {
 
-        backWorker.interrupt();
+        restoreWorker.interrupt();
         prepareWorker.interrupt();
 
         dispatcher.shutdown();
 
         try {
             while (!dispatcher.awaitTermination(15, TimeUnit.SECONDS)) {
-                LOG.info("{}: Dispatcher tasks haven't been yet completed.", getName());
+                LOG.info("{} Dispatcher tasks haven't been yet completed.", getName());
             }
         } catch (InterruptedException e) {
             LOG.error("Main thread has been interrupted unexpectedly!", e);

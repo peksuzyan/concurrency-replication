@@ -25,11 +25,11 @@ public class App {
         Thread.currentThread().setName("mainThread");
 
         HealthyMaster master = new HealthyMaster(
-                new HealthySlave("adasdada"),
+                new HealthySlave("healthy-thread-1"),
                 new ThrowingSlave(),
                 new PendingSlave(),
                 new HealthySlave(),
-                new HealthySlave("adasdada"));
+                new HealthySlave("healthy-thread-2"));
 
         master.postProject("England", "London");
         master.postProject("Germany", "Berlin");
