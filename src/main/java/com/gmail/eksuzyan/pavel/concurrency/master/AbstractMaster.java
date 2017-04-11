@@ -119,8 +119,13 @@ public abstract class AbstractMaster implements Master {
                     message = null;
 
                     message = entryMessages.take();
+//                    LOG.debug("Message is taken from entry queue!");
 
-                    if (message != null) prepareProject(message);
+                    if (message != null) {
+//                        LOG.debug("Message is not null!");
+                        prepareProject(message);
+//                        LOG.debug("Message is prepared!");
+                    }
                 }
             } catch (InterruptedException e) {
                 LOG.info("{} RestoreWorker has been collapsed due to thread interruption.", getName());
@@ -146,6 +151,7 @@ public abstract class AbstractMaster implements Master {
 
         try {
             entryMessages.put(message);
+//            LOG.debug("Message is inserted to entry queue!");
         } catch (InterruptedException e) {
             LOG.error("Client thread couldn't put {} into entry queue!", message);
         }
@@ -156,6 +162,8 @@ public abstract class AbstractMaster implements Master {
         Project newProject = !projects.containsKey(message.projectId)
                 ? new Project(message.projectId, message.data)
                 : projects.get(message.projectId).setDataAndIncVersion(message.data);
+
+//        LOG.debug("newProject: " + (newProject != null ? newProject.toString() : null));
 
         projects.put(message.projectId, newProject);
 
@@ -171,13 +179,21 @@ public abstract class AbstractMaster implements Master {
         Runnable task = new SendingTask(
                 slaves.get(request.slave), request, failedRequests);
 
-        if (!dispatcher.isShutdown())
+//        LOG.debug("task: " + task);
+
+        if (!dispatcher.isShutdown()) {
+//            LOG.debug("dispatcher.isShutdown() = false");
+//            System.out.println("now " + LocalDateTime.now());
+//            System.out.println("exe " + request.repeatDate);
+//            System.out.println("Delay: " + getDelayBetweenDates(request.repeatDate, LocalDateTime.now()));
             dispatcher.schedule(
                     task,
                     getDelayBetweenDates(request.repeatDate, LocalDateTime.now()),
                     TimeUnit.MILLISECONDS);
+        }
         else
             try {
+//                LOG.debug("dispatcher.isShutdown() = true");
                 failedRequests.put(request);
             } catch (InterruptedException e) {
                 LOG.error(Thread.currentThread().getName() + " has been interrupted unexpectedly!", e);
@@ -185,8 +201,7 @@ public abstract class AbstractMaster implements Master {
     }
 
     private long getDelayBetweenDates(LocalDateTime executionTime, LocalDateTime currentTime) {
-        return executionTime.isBefore(currentTime)
-                ? 0L : ChronoUnit.MILLIS.between(currentTime, executionTime);
+        return ChronoUnit.MILLIS.between(executionTime, currentTime);
     }
 
     /**
