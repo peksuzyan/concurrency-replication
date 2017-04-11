@@ -9,9 +9,10 @@ import com.gmail.eksuzyan.pavel.concurrency.slave.impl.ThrowingSlave;
 import org.junit.Test;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+
+import static org.junit.Assert.assertEquals;
 
 /**
  * @author Pavel Eksuzian.
@@ -45,7 +46,7 @@ public class MessageSendingToEntryQueueTest {
         }
     }
 
-    @Test(timeout = 5000)
+    @Test(timeout = 20000)
     public void testManyThreadsWithOneMessageEqualProjects() throws InterruptedException {
 
         Master master = new HealthyMaster(
@@ -79,7 +80,7 @@ public class MessageSendingToEntryQueueTest {
 //                System.out.println(s.getName() + ": " + s.getProjects().size() + " project(s)."));
     }
 
-    @Test(timeout = 5000)
+    @Test(timeout = 10000)
     public void testManyThreadsWithOneMessageUniqueProjects() throws InterruptedException {
 
         Master master = new HealthyMaster(
@@ -336,4 +337,5 @@ public class MessageSendingToEntryQueueTest {
 
         finishLatch.await();
     }
+
 }
