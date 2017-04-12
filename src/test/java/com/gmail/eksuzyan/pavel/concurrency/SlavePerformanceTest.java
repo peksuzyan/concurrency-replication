@@ -108,8 +108,6 @@ public class  SlavePerformanceTest {
         }
 
         Assert.assertEquals(messages, slaves[0].getProjects().size());
-        // was: ~700
-        // now: ~2400
     }
 
     @Test
@@ -130,8 +128,6 @@ public class  SlavePerformanceTest {
         }
 
         Assert.assertEquals(messages, slaves[0].getProjects().size());
-        // was: ~700
-        // now: ~2400
     }
 
 }

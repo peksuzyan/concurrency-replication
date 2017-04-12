@@ -13,6 +13,7 @@ import java.util.Queue;
  * @author Pavel Eksuzian.
  *         Created: 03.04.2017.
  */
+@SuppressWarnings({"ResultOfMethodCallIgnored", "MismatchedQueryAndUpdateOfCollection"})
 public class SystemPerformanceTest {
 
     @Test(timeout = 5000)
