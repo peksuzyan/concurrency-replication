@@ -1,7 +1,11 @@
 package com.gmail.eksuzyan.pavel.concurrency;
 
+import com.gmail.eksuzyan.pavel.concurrency.entities.Project;
+import com.gmail.eksuzyan.pavel.concurrency.entities.Request;
 import org.junit.Test;
 
+import java.time.LocalDateTime;
+import java.util.Date;
 import java.util.PriorityQueue;
 import java.util.Queue;
 
@@ -62,4 +66,51 @@ public class SystemPerformanceTest {
         System.out.println("Execution time: " + (end - start));
     }
 
+    @Test
+    public void testLocalDateTimeGeneration() {
+
+        long start = System.currentTimeMillis();
+
+        LocalDateTime current = LocalDateTime.now();
+
+        long end = System.currentTimeMillis();
+
+        System.out.println("Execution time: " + (end - start)); // ~ 80-100 ms
+    }
+
+    @Test
+    public void testRequestGeneration() {
+
+        long start = System.currentTimeMillis();
+
+        Request request = new Request("", new Project("id", "data"));
+
+        long end = System.currentTimeMillis();
+
+        System.out.println("Execution time: " + (end - start)); // ~ 90-110 ms
+    }
+
+    @Test
+    public void testObjectGeneration() {
+
+        long start = System.currentTimeMillis();
+
+        Object current = new Object();
+
+        long end = System.currentTimeMillis();
+
+        System.out.println("Execution time: " + (end - start));
+    }
+
+    @Test
+    public void testDateGeneration() {
+
+        long start = System.currentTimeMillis();
+
+        Date current = new Date();
+
+        long end = System.currentTimeMillis();
+
+        System.out.println("Execution time: " + (end - start));
+    }
 }

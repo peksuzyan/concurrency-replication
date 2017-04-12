@@ -7,6 +7,7 @@ import com.gmail.eksuzyan.pavel.concurrency.slave.impl.ThrowingSlave;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 
@@ -25,11 +26,11 @@ public class App {
         Thread.currentThread().setName("mainThread");
 
         HealthyMaster master = new HealthyMaster(
-                new HealthySlave("healthy-thread-1"),
+                new HealthySlave("healthy-1"),
                 new ThrowingSlave(),
                 new PendingSlave(),
                 new HealthySlave(),
-                new HealthySlave("healthy-thread-2"));
+                new HealthySlave("healthy-2"));
 
         master.postProject("England", "London");
         master.postProject("Germany", "Berlin");
@@ -60,6 +61,11 @@ public class App {
         master.getSlaves().forEach(slave -> {
             System.out.println("======================= " + slave.getName().toUpperCase() + " =======================");
             System.out.println("Projects:  \r\n" + slave.getProjects().toString());
+            try {
+                slave.close();
+            } catch (IOException e) {
+                LOG.error("Main thread has exploded unexpectedly due to IOException!");
+            }
         });
 
         System.out.println("======================================================");

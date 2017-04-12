@@ -8,8 +8,6 @@ import com.gmail.eksuzyan.pavel.concurrency.tasks.SendingTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
@@ -53,7 +51,7 @@ public abstract class AbstractMaster implements Master {
             Executors.newScheduledThreadPool(THREAD_POOL_SIZE);
 
     private final Comparator<Request> requestDateComparator =
-            (r1, r2) -> r1.repeatDate.compareTo(r2.repeatDate);
+            (r1, r2) -> (int) (r1.repeatDate - r2.repeatDate);
 
     private final BlockingQueue<Message> entryMessages =
             new LinkedBlockingQueue<>();
@@ -101,11 +99,15 @@ public abstract class AbstractMaster implements Master {
             Request request = null;
             try {
                 while (!Thread.currentThread().isInterrupted()) {
+                    long startTime = System.currentTimeMillis();
+
                     request = null;
 
                     request = failedRequests.take();
 
                     if (request != null) deliverToExecutor(request);
+
+                    LOG.trace("restoreWorker: " + (System.currentTimeMillis() - startTime));
                 }
             } catch (InterruptedException e) {
                 LOG.info("{} BackWorker has been collapsed due to thread interruption.", getName());
@@ -119,13 +121,12 @@ public abstract class AbstractMaster implements Master {
                     message = null;
 
                     message = entryMessages.take();
-//                    LOG.debug("Message is taken from entry queue!");
 
-                    if (message != null) {
-//                        LOG.debug("Message is not null!");
-                        prepareProject(message);
-//                        LOG.debug("Message is prepared!");
-                    }
+                    long startTime = System.currentTimeMillis();
+
+                    if (message != null) prepareProject(message);
+
+                    LOG.trace("[2] prepareWorker: " + (System.currentTimeMillis() - startTime));
                 }
             } catch (InterruptedException e) {
                 LOG.info("{} RestoreWorker has been collapsed due to thread interruption.", getName());
@@ -146,62 +147,65 @@ public abstract class AbstractMaster implements Master {
      * @param data      project data
      */
     protected void postProjectDefault(String projectId, String data) {
+        long startTime = System.currentTimeMillis();
+
+        if (projectId == null)
+            throw new IllegalArgumentException("Project ID mustn't be null.") ;
 
         final Message message = new Message(projectId, data);
 
         try {
             entryMessages.put(message);
-//            LOG.debug("Message is inserted to entry queue!");
         } catch (InterruptedException e) {
             LOG.error("Client thread couldn't put {} into entry queue!", message);
         }
+
+        LOG.trace("[1] postProjectDefault: " + (System.currentTimeMillis() - startTime));
     }
 
     private void prepareProject(Message message) {
+        long startTime = System.currentTimeMillis();
 
         Project newProject = !projects.containsKey(message.projectId)
                 ? new Project(message.projectId, message.data)
                 : projects.get(message.projectId).setDataAndIncVersion(message.data);
 
-//        LOG.debug("newProject: " + (newProject != null ? newProject.toString() : null));
-
         projects.put(message.projectId, newProject);
 
         prepareProjectToSlaves(newProject);
+
+        LOG.trace("[3] prepareProject: " + (System.currentTimeMillis() - startTime));
     }
 
     private void prepareProjectToSlaves(final Project project) {
+        long startTime = System.currentTimeMillis();
+
         slaves.values().forEach(slave ->
                 deliverToExecutor(new Request(slave.getName(), project)));
+
+        LOG.trace("[4] prepareProjectToSlaves: " + (System.currentTimeMillis() - startTime));
     }
 
     private void deliverToExecutor(Request request) {
+        long startTime = System.currentTimeMillis();
+
         Runnable task = new SendingTask(
                 slaves.get(request.slave), request, failedRequests);
 
-//        LOG.debug("task: " + task);
-
         if (!dispatcher.isShutdown()) {
-//            LOG.debug("dispatcher.isShutdown() = false");
-//            System.out.println("now " + LocalDateTime.now());
-//            System.out.println("exe " + request.repeatDate);
-//            System.out.println("Delay: " + getDelayBetweenDates(request.repeatDate, LocalDateTime.now()));
             dispatcher.schedule(
                     task,
-                    getDelayBetweenDates(request.repeatDate, LocalDateTime.now()),
+                    request.repeatDate - System.currentTimeMillis(),
                     TimeUnit.MILLISECONDS);
         }
         else
             try {
-//                LOG.debug("dispatcher.isShutdown() = true");
                 failedRequests.put(request);
             } catch (InterruptedException e) {
                 LOG.error(Thread.currentThread().getName() + " has been interrupted unexpectedly!", e);
             }
-    }
 
-    private long getDelayBetweenDates(LocalDateTime executionTime, LocalDateTime currentTime) {
-        return ChronoUnit.MILLIS.between(executionTime, currentTime);
+        LOG.trace("[5] deliverToExecutor: " + (System.currentTimeMillis() - startTime));
     }
 
     /**

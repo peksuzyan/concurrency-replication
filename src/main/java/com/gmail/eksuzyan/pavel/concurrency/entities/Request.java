@@ -1,7 +1,5 @@
 package com.gmail.eksuzyan.pavel.concurrency.entities;
 
-import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
 import java.util.Objects;
 
 /**
@@ -14,7 +12,7 @@ public class Request {
     public final String slave;
     public final int attempt;
     public final int code;
-    public final LocalDateTime repeatDate;
+    public final long repeatDate;
 
     public Request(String slave, Project project) {
         this(slave, project, 1, 0);
@@ -25,7 +23,7 @@ public class Request {
         this.slave = slave;
         this.attempt = attempt;
         this.code = code;
-        this.repeatDate = LocalDateTime.now().plus(1 << (attempt - 1), ChronoUnit.SECONDS);
+        this.repeatDate = Long.sum(attempt < 2 ? 0L : (1 << (attempt - 2)) * 1_000, System.currentTimeMillis());
     }
 
     public Request setCodeAndIncAttempt(int code) {
@@ -50,9 +48,9 @@ public class Request {
         Request request = (Request) o;
         return attempt == request.attempt &&
                 code == request.code &&
+                repeatDate == request.repeatDate &&
                 Objects.equals(project, request.project) &&
-                Objects.equals(slave, request.slave) &&
-                Objects.equals(repeatDate, request.repeatDate);
+                Objects.equals(slave, request.slave);
     }
 
     @Override

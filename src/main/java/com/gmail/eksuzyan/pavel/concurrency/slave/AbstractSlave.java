@@ -1,7 +1,10 @@
 package com.gmail.eksuzyan.pavel.concurrency.slave;
 
 import com.gmail.eksuzyan.pavel.concurrency.entities.Project;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
@@ -14,6 +17,11 @@ import java.util.concurrent.ConcurrentMap;
  *         Created: 03.04.2017.
  */
 public abstract class AbstractSlave implements Slave {
+
+    /**
+     * Ordinary logger.
+     */
+    private final static Logger LOG = LoggerFactory.getLogger(AbstractSlave.class);
 
     /**
      * Counter serves to generate unique slave ID.
@@ -64,6 +72,8 @@ public abstract class AbstractSlave implements Slave {
      * @param data      project data
      */
     protected final void postProjectDefault(String projectId, long version, String data) {
+        long startTime = System.currentTimeMillis();
+
         Project newProject = new Project(projectId, data, version);
 
         Project oldProject = projects.putIfAbsent(projectId, newProject);
@@ -73,6 +83,8 @@ public abstract class AbstractSlave implements Slave {
                 && oldProject.version < newProject.version) {
             projects.replace(projectId, oldProject, newProject);
         }
+
+        LOG.trace("[7] slavePostProjectDefault: " + (System.currentTimeMillis() - startTime));
     }
 
     /**
@@ -81,6 +93,6 @@ public abstract class AbstractSlave implements Slave {
      * @return a set of projects
      */
     protected final Collection<Project> getProjectsDefault() {
-        return projects.values();
+        return new ArrayList<>(projects.values());
     }
 }

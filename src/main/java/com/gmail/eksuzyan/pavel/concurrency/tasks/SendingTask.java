@@ -5,8 +5,6 @@ import com.gmail.eksuzyan.pavel.concurrency.slave.Slave;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
 import java.util.concurrent.BlockingQueue;
 
 /**
@@ -29,6 +27,8 @@ public class SendingTask implements Runnable {
 
     @Override
     public void run() {
+        long startTime = System.currentTimeMillis();
+
         try {
             slave.postProject(
                     request.project.id,
@@ -46,5 +46,7 @@ public class SendingTask implements Runnable {
                 LOG.error("Request has been lost due to unknown error.", ex);
             }
         }
+
+        LOG.trace("[6] sendingTask: " + (System.currentTimeMillis() - startTime));
     }
 }
