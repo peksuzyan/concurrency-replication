@@ -14,6 +14,9 @@ public class Request {
     public final int code;
     public final long repeatDate;
 
+    private static final long ZERO = 0L;
+    private static final int FIRST_ATTEMPT = 1;
+
     public Request(String slave, Project project) {
         this(slave, project, 1, 0);
     }
@@ -23,7 +26,9 @@ public class Request {
         this.slave = slave;
         this.attempt = attempt;
         this.code = code;
-        this.repeatDate = Long.sum(attempt < 2 ? 0L : (1 << (attempt - 2)) * 1_000, System.currentTimeMillis());
+        this.repeatDate = Long.sum(
+                attempt > FIRST_ATTEMPT ? 1 << (attempt + 5) : ZERO,
+                System.currentTimeMillis());
     }
 
     public Request setCodeAndIncAttempt(int code) {
