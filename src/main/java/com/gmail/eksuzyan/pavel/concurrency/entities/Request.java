@@ -1,5 +1,7 @@
 package com.gmail.eksuzyan.pavel.concurrency.entities;
 
+import com.gmail.eksuzyan.pavel.concurrency.slave.Slave;
+
 import java.util.Objects;
 
 /**
@@ -9,7 +11,7 @@ import java.util.Objects;
 public class Request {
 
     public final Project project;
-    public final String slave;
+    public final Slave slave;
     public final int attempt;
     public final int code;
     public final long repeatDate;
@@ -17,11 +19,11 @@ public class Request {
     private static final long ZERO = 0L;
     private static final int FIRST_ATTEMPT = 1;
 
-    public Request(String slave, Project project) {
+    public Request(Slave slave, Project project) {
         this(slave, project, 1, 0);
     }
 
-    private Request(String slave, Project project, int attempt, int code) {
+    private Request(Slave slave, Project project, int attempt, int code) {
         this.project = project;
         this.slave = slave;
         this.attempt = attempt;

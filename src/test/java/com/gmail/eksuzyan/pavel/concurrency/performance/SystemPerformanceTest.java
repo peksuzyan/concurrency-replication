@@ -1,4 +1,4 @@
-package com.gmail.eksuzyan.pavel.concurrency;
+package com.gmail.eksuzyan.pavel.concurrency.performance;
 
 import com.gmail.eksuzyan.pavel.concurrency.entities.Project;
 import com.gmail.eksuzyan.pavel.concurrency.entities.Request;
@@ -84,7 +84,7 @@ public class SystemPerformanceTest {
 
         long start = System.currentTimeMillis();
 
-        Request request = new Request("", new Project("id", "data"));
+        Request request = new Request(null, new Project("id", "data"));
 
         long end = System.currentTimeMillis();
 

@@ -31,7 +31,7 @@ public abstract class AbstractSlave implements Slave {
     /**
      * Default slave name.
      */
-    private static final String defaultName = "Slave";
+    private static final String DEFAULT_NAME = "Slave";
 
     /**
      * Slave name.
@@ -51,7 +51,7 @@ public abstract class AbstractSlave implements Slave {
     protected AbstractSlave(String name) {
         long id = ++slaveCounter;
         this.name = (name == null || name.trim().isEmpty())
-                ? String.format("%s-%d", defaultName, id) : name;
+                ? String.format("%s-%d", DEFAULT_NAME, id) : name;
     }
 
     /**
@@ -84,7 +84,7 @@ public abstract class AbstractSlave implements Slave {
             projects.replace(projectId, oldProject, newProject);
         }
 
-        LOG.trace("[7] slavePostProjectDefault: " + (System.currentTimeMillis() - startTime));
+        LOG.trace("[7] slavePostProjectDefault: {}", System.currentTimeMillis() - startTime);
     }
 
     /**

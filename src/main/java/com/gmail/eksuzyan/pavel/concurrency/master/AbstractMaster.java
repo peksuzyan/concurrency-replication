@@ -33,7 +33,7 @@ public abstract class AbstractMaster implements Master {
     /**
      * Default master name.
      */
-    private static final String defaultName = "Master";
+    private static final String DEFAULT_NAME = "Master";
 
     /**
      * Master name.
@@ -45,7 +45,7 @@ public abstract class AbstractMaster implements Master {
 
     private final Map<String, Slave> slaves;
 
-    private final Map<String, Project> projects = new HashMap<>();
+    private final Map<String, Project> projects = new ConcurrentHashMap<>();
 
     private final ScheduledExecutorService dispatcher =
             Executors.newScheduledThreadPool(THREAD_POOL_SIZE);
@@ -71,7 +71,7 @@ public abstract class AbstractMaster implements Master {
     protected AbstractMaster(String name, Slave... slaves) {
         long id = ++masterCounter;
         this.name = (name == null || name.trim().isEmpty())
-                ? String.format("%s-%d", defaultName, id) : name;
+                ? String.format("%s-%d", DEFAULT_NAME, id) : name;
 
         try {
             this.slaves =
@@ -80,8 +80,7 @@ public abstract class AbstractMaster implements Master {
                             : Collections.unmodifiableMap(
                             Arrays.stream(slaves)
                                     .peek(Objects::requireNonNull)
-                                    .collect(Collectors.toMap(
-                                            Slave::getName, slave -> slave)));
+                                    .collect(Collectors.toMap(Slave::getName, slave -> slave)));
         } catch (IllegalStateException e) {
             throw new IllegalArgumentException("Slaves have the same names!", e);
         } catch (NullPointerException e) {
@@ -93,6 +92,7 @@ public abstract class AbstractMaster implements Master {
         LOG.info("{} initialized.", getName());
     }
 
+    @SuppressWarnings("UnusedAssignment")
     private void initWorkers() {
 
         restoreWorker = new Thread(() -> {
@@ -107,7 +107,7 @@ public abstract class AbstractMaster implements Master {
 
                     if (request != null) deliverToExecutor(request);
 
-                    LOG.trace("restoreWorker: " + (System.currentTimeMillis() - startTime));
+                    LOG.trace("restoreWorker: {}", System.currentTimeMillis() - startTime);
                 }
             } catch (InterruptedException e) {
                 LOG.info("{} BackWorker has been collapsed due to thread interruption.", getName());
@@ -126,7 +126,7 @@ public abstract class AbstractMaster implements Master {
 
                     if (message != null) prepareProject(message);
 
-                    LOG.trace("[2] prepareWorker: " + (System.currentTimeMillis() - startTime));
+                    LOG.trace("[2] prepareWorker: {}", System.currentTimeMillis() - startTime);
                 }
             } catch (InterruptedException e) {
                 LOG.info("{} RestoreWorker has been collapsed due to thread interruption.", getName());
@@ -160,7 +160,7 @@ public abstract class AbstractMaster implements Master {
             LOG.error("Client thread couldn't put {} into entry queue!", message);
         }
 
-        LOG.trace("[1] postProjectDefault: " + (System.currentTimeMillis() - startTime));
+        LOG.trace("[1] postProjectDefault: {}", System.currentTimeMillis() - startTime);
     }
 
     private void prepareProject(Message message) {
@@ -174,23 +174,22 @@ public abstract class AbstractMaster implements Master {
 
         prepareProjectToSlaves(newProject);
 
-        LOG.trace("[3] prepareProject: " + (System.currentTimeMillis() - startTime));
+        LOG.trace("[3] prepareProject: {}", System.currentTimeMillis() - startTime);
     }
 
     private void prepareProjectToSlaves(final Project project) {
         long startTime = System.currentTimeMillis();
 
         slaves.values().forEach(slave ->
-                deliverToExecutor(new Request(slave.getName(), project)));
+                deliverToExecutor(new Request(slave, project)));
 
-        LOG.trace("[4] prepareProjectToSlaves: " + (System.currentTimeMillis() - startTime));
+        LOG.trace("[4] prepareProjectToSlaves: {}", System.currentTimeMillis() - startTime);
     }
 
     private void deliverToExecutor(Request request) {
         long startTime = System.currentTimeMillis();
 
-        Runnable task = new SendingTask(
-                slaves.get(request.slave), request, failedRequests);
+        Runnable task = new SendingTask(request, failedRequests);
 
         if (!dispatcher.isShutdown()) {
             dispatcher.schedule(
@@ -205,7 +204,7 @@ public abstract class AbstractMaster implements Master {
                 LOG.error(Thread.currentThread().getName() + " has been interrupted unexpectedly!", e);
             }
 
-        LOG.trace("[5] deliverToExecutor: " + (System.currentTimeMillis() - startTime));
+        LOG.trace("[5] deliverToExecutor: {}", System.currentTimeMillis() - startTime);
     }
 
     /**
@@ -214,7 +213,7 @@ public abstract class AbstractMaster implements Master {
      * @return projects
      */
     protected Collection<Project> getProjectsDefault() {
-        return projects.values();
+        return new ArrayList<>(projects.values());
     }
 
     /**
@@ -276,6 +275,6 @@ public abstract class AbstractMaster implements Master {
      */
     @Override
     public Collection<Slave> getSlaves() {
-        return slaves.values();
+        return new ArrayList<>(slaves.values());
     }
 }

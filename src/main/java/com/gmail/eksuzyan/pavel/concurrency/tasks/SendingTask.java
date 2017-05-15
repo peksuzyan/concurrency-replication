@@ -15,12 +15,10 @@ public class SendingTask implements Runnable {
 
     private final static Logger LOG = LoggerFactory.getLogger(SendingTask.class);
 
-    private final Slave slave;
     private final Request request;
     private final BlockingQueue<Request> failedRequests;
 
-    public SendingTask(Slave slave, Request request, BlockingQueue<Request> failedRequests) {
-        this.slave = slave;
+    public SendingTask(Request request, BlockingQueue<Request> failedRequests) {
         this.request = request;
         this.failedRequests = failedRequests;
     }
@@ -30,14 +28,14 @@ public class SendingTask implements Runnable {
         long startTime = System.currentTimeMillis();
 
         try {
-            slave.postProject(
+            request.slave.postProject(
                     request.project.id,
                     request.project.version,
                     request.project.data);
 
-            LOG.debug("[+] => {} => {}.", request.slave, request);
+            LOG.debug("[+] => {} => {}.", request.slave.getName(), request);
         } catch (Throwable e) {
-            LOG.debug("[-] => {} => {}.", request.slave, request);
+            LOG.debug("[-] => {} => {}.", request.slave.getName(), request);
 
             try {
                 failedRequests.put(request.setCodeAndIncAttempt(1));

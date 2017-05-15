@@ -1,4 +1,4 @@
-package com.gmail.eksuzyan.pavel.concurrency;
+package com.gmail.eksuzyan.pavel.concurrency.functionality;
 
 import com.gmail.eksuzyan.pavel.concurrency.master.Master;
 import com.gmail.eksuzyan.pavel.concurrency.master.impl.HealthyMaster;
