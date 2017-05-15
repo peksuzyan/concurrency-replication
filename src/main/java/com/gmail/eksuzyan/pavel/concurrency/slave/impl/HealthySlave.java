@@ -31,6 +31,6 @@ public class HealthySlave extends AbstractSlave {
 
     @Override
     public void close() {
-        /* NOP */
+        shutdownDefault();
     }
 }

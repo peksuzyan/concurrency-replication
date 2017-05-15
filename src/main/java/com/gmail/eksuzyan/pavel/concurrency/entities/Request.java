@@ -16,11 +16,11 @@ public class Request {
     public final int code;
     public final long repeatDate;
 
-    private static final long ZERO = 0L;
     private static final int FIRST_ATTEMPT = 1;
+    private static final int SUCCESS = 0;
 
     public Request(Slave slave, Project project) {
-        this(slave, project, 1, 0);
+        this(slave, project, FIRST_ATTEMPT, SUCCESS);
     }
 
     private Request(Slave slave, Project project, int attempt, int code) {
@@ -29,7 +29,7 @@ public class Request {
         this.attempt = attempt;
         this.code = code;
         this.repeatDate = Long.sum(
-                attempt > FIRST_ATTEMPT ? 1 << (attempt + 5) : ZERO,
+                attempt > FIRST_ATTEMPT ? 1 << (attempt + 5) : 0L,
                 System.currentTimeMillis());
     }
 

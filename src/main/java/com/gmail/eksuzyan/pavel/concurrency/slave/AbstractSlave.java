@@ -34,6 +34,11 @@ public abstract class AbstractSlave implements Slave {
     private static final String DEFAULT_NAME = "Slave";
 
     /**
+     * Indicates either slave closed or not.
+     */
+    private volatile boolean closed = false;
+
+    /**
      * Slave name.
      */
     private final String name;
@@ -74,6 +79,8 @@ public abstract class AbstractSlave implements Slave {
     protected final void postProjectDefault(String projectId, long version, String data) {
         long startTime = System.currentTimeMillis();
 
+        if (closed) return;
+
         Project newProject = new Project(projectId, data, version);
 
         Project oldProject = projects.putIfAbsent(projectId, newProject);
@@ -94,5 +101,17 @@ public abstract class AbstractSlave implements Slave {
      */
     protected final Collection<Project> getProjectsDefault() {
         return new ArrayList<>(projects.values());
+    }
+
+    /**
+     * Stops slave.
+     */
+    protected void shutdownDefault() {
+
+        if (closed) return;
+
+        closed = true;
+
+        LOG.info("{} closed.", getName());
     }
 }

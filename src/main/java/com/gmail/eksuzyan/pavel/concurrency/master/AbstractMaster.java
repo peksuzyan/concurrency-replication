@@ -36,6 +36,11 @@ public abstract class AbstractMaster implements Master {
     private static final String DEFAULT_NAME = "Master";
 
     /**
+     * Indicates either master closed or not.
+     */
+    private volatile boolean closed = false;
+
+    /**
      * Master name.
      */
     private String name;
@@ -149,6 +154,9 @@ public abstract class AbstractMaster implements Master {
     protected void postProjectDefault(String projectId, String data) {
         long startTime = System.currentTimeMillis();
 
+        if (closed)
+            throw new IllegalStateException(getName() + " closed already.");
+
         if (projectId == null)
             throw new IllegalArgumentException("Project ID mustn't be null.") ;
 
@@ -231,6 +239,11 @@ public abstract class AbstractMaster implements Master {
      * Stops workers and thread pool.
      */
     protected void shutdownDefault() {
+
+        if (closed)
+            throw new IllegalStateException(getName() + " closed already.");
+
+        closed = true;
 
         restoreWorker.interrupt();
         prepareWorker.interrupt();

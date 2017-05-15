@@ -12,6 +12,8 @@ public class Project {
     public final long version;
     public final String data;
 
+    private static final long FIRST_VERSION = 1L;
+
     public Project(String id, String data, long version) {
         this.id = id;
         this.version = version;
@@ -19,7 +21,7 @@ public class Project {
     }
 
     public Project(String id, String data) {
-        this(id, data, 1L);
+        this(id, data, FIRST_VERSION);
     }
 
     public Project setDataAndIncVersion(String data) {

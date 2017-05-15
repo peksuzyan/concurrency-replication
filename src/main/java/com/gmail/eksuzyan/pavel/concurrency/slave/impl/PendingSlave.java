@@ -32,7 +32,7 @@ public class PendingSlave extends AbstractSlave {
     }
 
     @Override
-    public void close() throws IOException {
-       /* NOP */
+    public void close() {
+        shutdownDefault();
     }
 }

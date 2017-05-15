@@ -8,6 +8,7 @@ import com.gmail.eksuzyan.pavel.concurrency.slave.impl.HealthySlave;
 import org.junit.Assert;
 import org.junit.Test;
 
+import java.io.IOException;
 import java.util.concurrent.CountDownLatch;
 
 /**
@@ -67,6 +68,42 @@ public class GeneralSlaveTest {
 
         master.getSlaves().forEach(slave ->
                 Assert.assertEquals(projectsCount, slave.getProjects().size()));
+    }
+
+    @Test
+    public void closeMasterAndPostProject() throws InterruptedException, IOException {
+
+        Slave[] slaves = new Slave[] {new HealthySlave()};
+
+        Master master = new HealthyMaster(slaves);
+
+        slaves[0].close();
+
+        master.postProject("project", "data");
+
+        Thread.sleep(50);
+
+        master.getSlaves().forEach(slave ->
+                Assert.assertEquals(0, slave.getProjects().size()));
+    }
+
+    @Test
+    public void closeMasterAndCloseAgain() throws InterruptedException, IOException {
+
+        Slave[] slaves = new Slave[] {new HealthySlave()};
+
+        Master master = new HealthyMaster(slaves);
+
+        slaves[0].close();
+
+        master.postProject("project", "data");
+
+        Thread.sleep(50);
+
+        slaves[0].close();
+
+        master.getSlaves().forEach(slave ->
+                Assert.assertEquals(0, slave.getProjects().size()));
     }
 
 }

@@ -131,4 +131,24 @@ public class GeneralMasterTest {
         Assert.assertEquals(slaves.length, master.getSlaves().size());
     }
 
+    @Test(expected = IllegalStateException.class)
+    public void closeMasterAndPostProject() throws InterruptedException, IOException {
+
+        Master master = new HealthyMaster(null);
+
+        master.close();
+
+        master.postProject("project", "data");
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void closeMasterAndCloseAgain() throws InterruptedException, IOException {
+
+        Master master = new HealthyMaster(null);
+
+        master.close();
+
+        master.close();
+    }
+
 }
