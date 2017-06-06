@@ -16,6 +16,12 @@ public class Request {
     public final int code;
     public final long repeatDate;
 
+    private enum Status {
+        UNDEFINED,
+        DELIVERED,
+        REJECTED
+    }
+
     private static final int FIRST_ATTEMPT = 1;
     private static final int SUCCESS = 0;
 
@@ -41,7 +47,7 @@ public class Request {
     public String toString() {
         return "Request{" +
                 "project=" + project +
-                ", slave='" + slave + '\'' +
+                ", slave=" + slave.getName() +
                 ", attempt=" + attempt +
                 ", code=" + code +
                 ", repeatDate=" + repeatDate +

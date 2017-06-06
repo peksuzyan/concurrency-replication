@@ -91,7 +91,7 @@ public abstract class AbstractSlave implements Slave {
             projects.replace(projectId, oldProject, newProject);
         }
 
-        LOG.trace("[7] slavePostProjectDefault: {}", System.currentTimeMillis() - startTime);
+        LOG.trace("slavePostProjectDefault: {}ms", System.currentTimeMillis() - startTime);
     }
 
     /**

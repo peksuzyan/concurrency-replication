@@ -19,6 +19,18 @@ import java.util.concurrent.CountDownLatch;
 public class GeneralSlaveTest {
 
     @Test
+    public void plainTest() throws InterruptedException {
+
+        Master master = new HealthyMaster(new HealthySlave());
+
+        master.postProject("project", "data");
+
+        Thread.sleep(1000);
+
+        Assert.assertEquals(1, master.getProjects().size());
+    }
+
+    @Test
     public void postAndGetProjects() throws InterruptedException {
 
         final int projectsCount = 10_000;
