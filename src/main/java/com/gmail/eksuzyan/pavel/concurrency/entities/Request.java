@@ -12,24 +12,23 @@ public class Request {
 
     public final Project project;
     public final Slave slave;
-    public final int attempt;
-    public final int code;
+    private final int attempt;
+    public final Code code;
     public final long repeatDate;
 
-    private enum Status {
+    public enum Code {
         UNDEFINED,
         DELIVERED,
         REJECTED
     }
 
     private static final int FIRST_ATTEMPT = 1;
-    private static final int SUCCESS = 0;
 
     public Request(Slave slave, Project project) {
-        this(slave, project, FIRST_ATTEMPT, SUCCESS);
+        this(slave, project, FIRST_ATTEMPT, Code.UNDEFINED);
     }
 
-    private Request(Slave slave, Project project, int attempt, int code) {
+    private Request(Slave slave, Project project, int attempt, Code code) {
         this.project = project;
         this.slave = slave;
         this.attempt = attempt;
@@ -39,8 +38,26 @@ public class Request {
                 System.currentTimeMillis());
     }
 
-    public Request setCodeAndIncAttempt(int code) {
-        return new Request(slave, project, attempt + 1, code);
+    public Request incAttemptAndReturn() {
+        return new Request(slave, project, attempt + 1, Code.UNDEFINED);
+    }
+
+    public Request setCodeAndReturn(Code code) {
+        return new Request(slave, project, attempt, code);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Request)) return false;
+        Request request = (Request) o;
+        return Objects.equals(project, request.project) &&
+                Objects.equals(slave, request.slave);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(project, slave);
     }
 
     @Override
@@ -54,20 +71,5 @@ public class Request {
                 '}';
     }
 
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (!(o instanceof Request)) return false;
-        Request request = (Request) o;
-        return attempt == request.attempt &&
-                code == request.code &&
-                repeatDate == request.repeatDate &&
-                Objects.equals(project, request.project) &&
-                Objects.equals(slave, request.slave);
-    }
 
-    @Override
-    public int hashCode() {
-        return Objects.hash(project, slave, attempt, code, repeatDate);
-    }
 }

@@ -46,16 +46,15 @@ public abstract class AbstractMaster implements Master {
 
     private static final int DISPATCHER_THREAD_POOL_SIZE = 4;
     private static final int PREPARATOR_THREAD_POOL_SIZE = 4;
-    private static final int RESTORER_THREAD_POOL_SIZE = 4;
+    private static final int LISTENER_THREAD_POOL_SIZE = 4;
 
     private final Map<String, Slave> slaves;
 
-    // Must be concurrent!!!
-    private final Map<String, Project> projects = new ConcurrentHashMap<>();
-
-    private final Map<Slave, ConcurrentMap<String, Long>> newestVersionTracker = new HashMap<>();
+    private final ConcurrentMap<String, Project> projects = new ConcurrentHashMap<>();
 
     private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
+
+    private final Set<Request> failed = new HashSet<>();
 
     private final ExecutorService dispatcher =
             Executors.newFixedThreadPool(
@@ -67,22 +66,21 @@ public abstract class AbstractMaster implements Master {
                     DISPATCHER_THREAD_POOL_SIZE,
                     new NamedThreadFactory("repeater"));
 
+    private final CompletionService<Request> dispatcherService =
+            new ExecutorCompletionService<>(dispatcher);
+
+    private final CompletionService<Request> repeaterService =
+            new ExecutorCompletionService<>(repeater);
+
     private final ExecutorService preparator =
             Executors.newFixedThreadPool(
                     PREPARATOR_THREAD_POOL_SIZE,
                     new NamedThreadFactory("preparator"));
 
-    private final BlockingQueue<Runnable> failedRequestsQueue =
-            new LinkedBlockingQueue<>();
-
-    private final ExecutorService restorer =
-            new ThreadPoolExecutor(
-                    RESTORER_THREAD_POOL_SIZE,
-                    RESTORER_THREAD_POOL_SIZE,
-                    10L,
-                    TimeUnit.SECONDS,
-                    failedRequestsQueue,
-                    new NamedThreadFactory("restorer"));
+    private final ScheduledExecutorService listener =
+            Executors.newScheduledThreadPool(
+                    LISTENER_THREAD_POOL_SIZE,
+                    new NamedThreadFactory("listener"));
 
     /**
      * Creates thread factory instance which assigns a thread name according to the given name.
@@ -133,6 +131,11 @@ public abstract class AbstractMaster implements Master {
             throw new IllegalArgumentException("Slave mustn't be null!", e);
         }
 
+        listener.scheduleAtFixedRate(
+                new ListenerTask(false), 0, 10, TimeUnit.MILLISECONDS);
+        listener.scheduleAtFixedRate(
+                new ListenerTask(true), 0, 10, TimeUnit.MILLISECONDS);
+
         LOG.info("{} initialized.", getName());
     }
 
@@ -161,16 +164,23 @@ public abstract class AbstractMaster implements Master {
         LOG.trace("postProjectDefault: {}ms", System.currentTimeMillis() - startTime);
     }
 
+    //todo
     private void prepareProject(String projectId, String data) {
         long startTime = System.currentTimeMillis();
 
-        Project newProject = !projects.containsKey(projectId)
-                ? new Project(projectId, data)
-                : projects.get(projectId).setDataAndIncVersion(data);
+        Project newProject = new Project(projectId, data);
 
-        projects.put(projectId, newProject);
+        Project oldProject = projects.putIfAbsent(projectId, newProject);
 
-        prepareProjectToSlaves(newProject);
+        boolean isActual = false;
+        if (oldProject != null)
+            isActual = projects.replace(
+                    projectId, oldProject, newProject = oldProject.setDataAndIncVersion(data));
+
+        if (isActual)
+            prepareProjectToSlaves(newProject);
+        else
+            prepareProject(projectId, data);
 
         LOG.trace("prepareProject: {}ms", System.currentTimeMillis() - startTime);
     }
@@ -178,37 +188,51 @@ public abstract class AbstractMaster implements Master {
     private void prepareProjectToSlaves(final Project project) {
         long startTime = System.currentTimeMillis();
 
-        slaves.values().forEach(slave ->
-                deliverToDispatcher(new Request(slave, project)));
+        Collection<Request> requests = slaves.values().parallelStream()
+                .map(slave -> deliverToDispatcher(new Request(slave, project)))
+                .collect(Collectors.toList());
 
-//        for (Slave slave : slaves.values())
-//            deliverToDispatcher(new Request(slave, project));
+        boolean isRegistered = registerRequests(requests);
+
+        if (!isRegistered)
+            LOG.info("Total {} requests haven't been registered.", requests.size());
 
         LOG.trace("prepareProjectToSlaves: {}ms", System.currentTimeMillis() - startTime);
     }
 
-    private void deliverToDispatcher(Request request) {
+    private Request deliverToDispatcher(Request request) {
         long startTime = System.currentTimeMillis();
 
-        final Runnable sendingTask = new SendingTask(request);
-
         if (!dispatcher.isShutdown())
-            dispatcher.execute(sendingTask);
+            dispatcher.submit(new SendingTask(request));
         else
             LOG.debug("{} can't be delivered because dispatcher is shutdown.", request);
 
         LOG.trace("deliverToDispatcher: {}ms", System.currentTimeMillis() - startTime);
+
+        return request;
+    }
+
+    private boolean registerRequests(Collection<Request> requests) {
+        long startTime = System.currentTimeMillis();
+
+        lock.writeLock().lock();
+        try {
+            return failed.addAll(requests);
+        } finally {
+            lock.writeLock().unlock();
+
+            LOG.trace("registerRequests: {}ms", System.currentTimeMillis() - startTime);
+        }
     }
 
     private void deliverToRepeater(Request request) {
         long startTime = System.currentTimeMillis();
 
-        final Runnable sendingTask = new SendingTask(request);
-
         long delay = request.repeatDate - System.currentTimeMillis();
 
         if (!repeater.isShutdown())
-            repeater.schedule(sendingTask, delay, TimeUnit.MILLISECONDS);
+            repeater.schedule(new SendingTask(request), delay, TimeUnit.MILLISECONDS);
         else
             LOG.debug("{} can't be delivered again because repeater is shutdown.", request);
 
@@ -230,9 +254,12 @@ public abstract class AbstractMaster implements Master {
      * @return requests
      */
     protected Collection<Request> getFailedDefault() {
-        return failedRequestsQueue.stream()
-                .map(t -> ((RestoringTask) t).request)
-                .collect(Collectors.toList());
+        lock.readLock().lock();
+        try {
+            return new ArrayList<>(failed);
+        } finally {
+            lock.readLock().unlock();
+        }
     }
 
     /**
@@ -246,8 +273,8 @@ public abstract class AbstractMaster implements Master {
         closed = true;
 
         preparator.shutdownNow();
+        listener.shutdownNow();
         dispatcher.shutdownNow();
-        restorer.shutdownNow();
         repeater.shutdownNow();
 
         try {
@@ -309,65 +336,71 @@ public abstract class AbstractMaster implements Master {
         }
     }
 
-    /**
-     * Restores a request when it has failed.
-     */
-    private class RestoringTask implements Runnable {
-        final Request request;
+    private class ListenerTask implements Runnable {
 
-        RestoringTask(Request request) {
-            this.request = request;
+        private final boolean forRepeater;
+        private final CompletionService<Request> service;
+
+        ListenerTask(boolean forRepeater) {
+            this.forRepeater = forRepeater;
+            this.service = forRepeater ? repeaterService : dispatcherService;
         }
 
-        private ConcurrentMap<String, Long> getOrCreateSlaveTracker(Slave slave) {
-
-            lock.readLock().lock();
-            try {
-                if (!newestVersionTracker.containsKey(slave)) {
-                    lock.readLock().unlock();
-                    lock.writeLock().lock();
-                    try {
-                        if (!newestVersionTracker.containsKey(slave)) {
-                            ConcurrentMap<String, Long> slaveTracker = new ConcurrentHashMap<>();
-                            newestVersionTracker.put(slave, slaveTracker);
-                            return slaveTracker;
-                        } else {
-                            return newestVersionTracker.get(slave);
-                        }
-                    } finally {
-                        lock.writeLock().unlock();
-                    }
-                } else {
-                    return newestVersionTracker.get(slave);
-                }
-            } finally {
-                lock.readLock().unlock();
-            }
+        private void deliverTo(Request request) {
+            if (forRepeater)
+                deliverToRepeater(request);
+            else
+                deliverToDispatcher(request);
         }
 
         @Override
         public void run() {
+            try {
+                final Request oldRequest = service.take().get();
 
-            // A request shouldn't be sent if a request version more than one from main map.
-            // Restorer can be renamed on registrator :)
+                lock.writeLock().lock();
+                boolean isRemoved = failed.remove(oldRequest);
 
-            ConcurrentMap<String, Long> slaveTracker = getOrCreateSlaveTracker(request.slave);
+                if (!isRemoved)
+                    LOG.info("{} isn't removed from failed requests set.", oldRequest);
 
-            Long lastVersion = slaveTracker.putIfAbsent(request.project.id, request.project.version);
+                if (oldRequest.code == Request.Code.REJECTED) {
 
-            boolean isActual = false;
-            if (lastVersion != null && lastVersion <= request.project.version)
-                isActual = slaveTracker.replace(request.project.id, lastVersion, request.project.version);
+                    Request newRequest = oldRequest.incAttemptAndReturn();
 
-            if (isActual)
-                AbstractMaster.this.deliverToRepeater(request);
+                    boolean isRegistered;
+
+                    boolean isYoungestVersion =
+                            failed.stream().allMatch(
+                                    r -> r.slave == oldRequest.slave
+                                            && Objects.equals(r.project.id, oldRequest.project.id)
+                                            && r.project.version < oldRequest.project.version);
+
+                    if (isYoungestVersion) {
+                        isRegistered = failed.add(newRequest);
+                        deliverTo(newRequest);
+                    } else {
+                        isRegistered = failed.add(oldRequest);
+                    }
+
+                    if (!isRegistered)
+                        LOG.info("{} isn't registered on failed requests set.",
+                                isYoungestVersion ? newRequest : oldRequest);
+                }
+            } catch (InterruptedException e) {
+                LOG.debug("Listener task is interrupted correctly.");
+            } catch (ExecutionException e) {
+                LOG.error("Exception is occurred unexpectedly. ", e);
+            } finally {
+                if (lock.writeLock().isHeldByCurrentThread()) lock.writeLock().unlock();
+            }
         }
     }
 
     /**
      * Posts a request into a slave.
      */
-    private class SendingTask implements Runnable {
+    private class SendingTask implements Callable<Request> {
         private final Request request;
 
         SendingTask(Request request) {
@@ -375,7 +408,7 @@ public abstract class AbstractMaster implements Master {
         }
 
         @Override
-        public void run() {
+        public Request call() throws Exception {
             long startTime = System.currentTimeMillis();
 
             try {
@@ -384,20 +417,14 @@ public abstract class AbstractMaster implements Master {
                         request.project.version,
                         request.project.data);
 
-                LOG.debug("[+] => {} => {}.", request.slave.getName(), request);
-            } catch (Throwable e) {
-                LOG.debug("[-] => {} => {}.", request.slave.getName(), request);
-
-                RestoringTask restoringTask =
-                        new RestoringTask(request.setCodeAndIncAttempt(1));
-
-                if (!restorer.isShutdown())
-                    restorer.execute(restoringTask);
-                else
-                    LOG.debug("{} can't be restored because restorer is shutdown.", request);
+//                LOG.debug("[+] => {} => {}.", request.slave.getName(), request);
+                return request.setCodeAndReturn(Request.Code.DELIVERED);
+            } catch (Exception e) {
+//                LOG.debug("[-] => {} => {}.", request.slave.getName(), request);
+                return request.setCodeAndReturn(Request.Code.REJECTED);
+            } finally {
+                LOG.trace("sendingTask: {}ms", System.currentTimeMillis() - startTime);
             }
-
-            LOG.trace("sendingTask: {}ms", System.currentTimeMillis() - startTime);
         }
     }
 }
