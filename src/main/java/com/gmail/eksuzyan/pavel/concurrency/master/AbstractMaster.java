@@ -8,7 +8,6 @@ import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
 
 /**
@@ -52,17 +51,15 @@ public abstract class AbstractMaster implements Master {
 
     private final ConcurrentMap<String, Project> projects = new ConcurrentHashMap<>();
 
-    private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
-
-    private final Set<Request> failed = new HashSet<>();
+    private final Set<Request> failed = new CopyOnWriteArraySet<>();
 
     private final ExecutorService dispatcher =
             Executors.newFixedThreadPool(
                     DISPATCHER_THREAD_POOL_SIZE,
                     new NamedThreadFactory("dispatcher"));
 
-    private final ScheduledExecutorService repeater =
-            Executors.newScheduledThreadPool(
+    private final ExecutorService repeater =
+            Executors.newFixedThreadPool(
                     DISPATCHER_THREAD_POOL_SIZE,
                     new NamedThreadFactory("repeater"));
 
@@ -77,10 +74,17 @@ public abstract class AbstractMaster implements Master {
                     PREPARATOR_THREAD_POOL_SIZE,
                     new NamedThreadFactory("preparator"));
 
-    private final ScheduledExecutorService listener =
-            Executors.newScheduledThreadPool(
+    private final ExecutorService listener =
+            Executors.newFixedThreadPool(
                     LISTENER_THREAD_POOL_SIZE,
                     new NamedThreadFactory("listener"));
+
+    private final ScheduledExecutorService scheduler =
+            Executors.newScheduledThreadPool(
+                    DISPATCHER_THREAD_POOL_SIZE,
+                    new NamedThreadFactory("scheduler"));
+
+    private static final int MAX_ATTEMPTS = 3;
 
     /**
      * Creates thread factory instance which assigns a thread name according to the given name.
@@ -131,11 +135,6 @@ public abstract class AbstractMaster implements Master {
             throw new IllegalArgumentException("Slave mustn't be null!", e);
         }
 
-        listener.scheduleAtFixedRate(
-                new ListenerTask(false), 0, 10, TimeUnit.MILLISECONDS);
-        listener.scheduleAtFixedRate(
-                new ListenerTask(true), 0, 10, TimeUnit.MILLISECONDS);
-
         LOG.info("{} initialized.", getName());
     }
 
@@ -154,17 +153,14 @@ public abstract class AbstractMaster implements Master {
         if (projectId == null)
             throw new IllegalArgumentException("Project ID mustn't be null.");
 
-        final Runnable task = new PreparationTask(projectId, data);
-
         if (!preparator.isShutdown())
-            preparator.execute(task);
+            preparator.execute(new PreparationTask(projectId, data));
         else
             LOG.debug("{} can't be processed because preparator is shutdown.", new Project(projectId, data));
 
         LOG.trace("postProjectDefault: {}ms", System.currentTimeMillis() - startTime);
     }
 
-    //todo
     private void prepareProject(String projectId, String data) {
         long startTime = System.currentTimeMillis();
 
@@ -172,30 +168,37 @@ public abstract class AbstractMaster implements Master {
 
         Project oldProject = projects.putIfAbsent(projectId, newProject);
 
-        boolean isActual = false;
+        boolean isReplaced = true;
         if (oldProject != null)
-            isActual = projects.replace(
-                    projectId, oldProject, newProject = oldProject.setDataAndIncVersion(data));
+            isReplaced = projects.replace(projectId, oldProject, newProject = oldProject.setDataAndIncVersion(data));
 
-        if (isActual)
-            prepareProjectToSlaves(newProject);
-        else
-            prepareProject(projectId, data);
+        if (!isReplaced) LOG.info("{} isn't inserted into master store.", newProject);
+
+        prepareProjectToSlaves(newProject);
 
         LOG.trace("prepareProject: {}ms", System.currentTimeMillis() - startTime);
     }
 
+    // TODO: 03.07.2017 Make checking on slaves presence (see logs)
     private void prepareProjectToSlaves(final Project project) {
         long startTime = System.currentTimeMillis();
 
-        Collection<Request> requests = slaves.values().parallelStream()
+        Collection<Request> requests = slaves.values().stream()
                 .map(slave -> deliverToDispatcher(new Request(slave, project)))
                 .collect(Collectors.toList());
 
-        boolean isRegistered = registerRequests(requests);
+        boolean isRegistered = register(requests);
 
-        if (!isRegistered)
-            LOG.info("Total {} requests haven't been registered.", requests.size());
+        if (isRegistered)
+            requests.forEach(r -> {
+                if (!listener.isShutdown()) {
+                    listener.execute(new ListenerTask(dispatcherService));
+                } else {
+                    LOG.debug("{} can't be processed because listener is shutdown.", r);
+                }
+            });
+        else
+            LOG.info("{} aren't registered on failed requests set.", requests);
 
         LOG.trace("prepareProjectToSlaves: {}ms", System.currentTimeMillis() - startTime);
     }
@@ -203,8 +206,8 @@ public abstract class AbstractMaster implements Master {
     private Request deliverToDispatcher(Request request) {
         long startTime = System.currentTimeMillis();
 
-        if (!dispatcher.isShutdown())
-            dispatcher.submit(new SendingTask(request));
+        if (!closed)
+            dispatcherService.submit(new SendingTask(request));
         else
             LOG.debug("{} can't be delivered because dispatcher is shutdown.", request);
 
@@ -213,30 +216,34 @@ public abstract class AbstractMaster implements Master {
         return request;
     }
 
-    private boolean registerRequests(Collection<Request> requests) {
-        long startTime = System.currentTimeMillis();
-
-        lock.writeLock().lock();
-        try {
-            return failed.addAll(requests);
-        } finally {
-            lock.writeLock().unlock();
-
-            LOG.trace("registerRequests: {}ms", System.currentTimeMillis() - startTime);
-        }
+    private boolean register(Request request) {
+        return register(Collections.singleton(request));
     }
 
-    private void deliverToRepeater(Request request) {
+    @SuppressWarnings("StatementWithEmptyBody")
+    private boolean register(Collection<Request> requests) {
         long startTime = System.currentTimeMillis();
 
-        long delay = request.repeatDate - System.currentTimeMillis();
+        int attempts = 0;
+        boolean isRegistered;
+        while (!(isRegistered = failed.addAll(requests)) && ++attempts <= MAX_ATTEMPTS) ;
 
-        if (!repeater.isShutdown())
-            repeater.schedule(new SendingTask(request), delay, TimeUnit.MILLISECONDS);
-        else
-            LOG.debug("{} can't be delivered again because repeater is shutdown.", request);
+        LOG.trace("register: {}ms", System.currentTimeMillis() - startTime);
 
-        LOG.trace("deliverToRepeater: {}ms", System.currentTimeMillis() - startTime);
+        return isRegistered;
+    }
+
+    @SuppressWarnings("StatementWithEmptyBody")
+    private boolean unregister(Request request) {
+        long startTime = System.currentTimeMillis();
+
+        int attempts = 0;
+        boolean isUnregistered;
+        while (!(isUnregistered = failed.remove(request)) && ++attempts <= MAX_ATTEMPTS) ;
+
+        LOG.trace("unregister: {}ms", System.currentTimeMillis() - startTime);
+
+        return isUnregistered;
     }
 
     /**
@@ -254,12 +261,7 @@ public abstract class AbstractMaster implements Master {
      * @return requests
      */
     protected Collection<Request> getFailedDefault() {
-        lock.readLock().lock();
-        try {
-            return new ArrayList<>(failed);
-        } finally {
-            lock.readLock().unlock();
-        }
+        return new ArrayList<>(failed);
     }
 
     /**
@@ -272,14 +274,19 @@ public abstract class AbstractMaster implements Master {
 
         closed = true;
 
-        preparator.shutdownNow();
-        listener.shutdownNow();
-        dispatcher.shutdownNow();
-        repeater.shutdownNow();
+        preparator.shutdown();
+        dispatcher.shutdown();
+        repeater.shutdown();
+        scheduler.shutdown();
+
+        List<Runnable> tasks = listener.shutdownNow();
+        if (tasks.isEmpty())
+            LOG.debug("Total {} listener's tasks that never commenced execution.", tasks.size());
 
         try {
-            while (!dispatcher.awaitTermination(15, TimeUnit.SECONDS)) {
-                LOG.info("{} Dispatcher tasks haven't been yet completed.", getName());
+            while (!dispatcher.awaitTermination(5, TimeUnit.SECONDS)
+                    && !repeater.awaitTermination(5, TimeUnit.SECONDS)) {
+                LOG.info("{} dispatcher's and repeater's tasks haven't been yet completed.", getName());
             }
         } catch (InterruptedException e) {
             LOG.error("Main thread has been interrupted unexpectedly!", e);
@@ -338,19 +345,10 @@ public abstract class AbstractMaster implements Master {
 
     private class ListenerTask implements Runnable {
 
-        private final boolean forRepeater;
         private final CompletionService<Request> service;
 
-        ListenerTask(boolean forRepeater) {
-            this.forRepeater = forRepeater;
-            this.service = forRepeater ? repeaterService : dispatcherService;
-        }
-
-        private void deliverTo(Request request) {
-            if (forRepeater)
-                deliverToRepeater(request);
-            else
-                deliverToDispatcher(request);
+        ListenerTask(CompletionService<Request> service) {
+            this.service = service;
         }
 
         @Override
@@ -358,41 +356,50 @@ public abstract class AbstractMaster implements Master {
             try {
                 final Request oldRequest = service.take().get();
 
-                lock.writeLock().lock();
-                boolean isRemoved = failed.remove(oldRequest);
-
-                if (!isRemoved)
-                    LOG.info("{} isn't removed from failed requests set.", oldRequest);
+                boolean isUnregistered = unregister(oldRequest);
+                if (!isUnregistered) LOG.info("{} isn't unregistered from failed requests set.", oldRequest);
 
                 if (oldRequest.code == Request.Code.REJECTED) {
+                    final Request newRequest = oldRequest.incAttemptAndReturn();
 
-                    Request newRequest = oldRequest.incAttemptAndReturn();
+                    boolean isYoungestVersion = failed.stream()
+                            .filter(r -> r.slave == oldRequest.slave && Objects.equals(r.project.id, oldRequest.project.id))
+                            .allMatch(r -> r.project.version < oldRequest.project.version);
 
-                    boolean isRegistered;
+                    long delay = newRequest.repeatDate - System.currentTimeMillis();
 
-                    boolean isYoungestVersion =
-                            failed.stream().allMatch(
-                                    r -> r.slave == oldRequest.slave
-                                            && Objects.equals(r.project.id, oldRequest.project.id)
-                                            && r.project.version < oldRequest.project.version);
-
-                    if (isYoungestVersion) {
-                        isRegistered = failed.add(newRequest);
-                        deliverTo(newRequest);
+                    if (isYoungestVersion && !scheduler.isShutdown()) {
+                        scheduler.schedule(new ScheduledTask(newRequest), delay, TimeUnit.MILLISECONDS);
                     } else {
-                        isRegistered = failed.add(oldRequest);
+                        boolean isRegistered = register(oldRequest);
+                        if (!isRegistered) LOG.info("{} isn't registered on failed requests set.", oldRequest);
                     }
-
-                    if (!isRegistered)
-                        LOG.info("{} isn't registered on failed requests set.",
-                                isYoungestVersion ? newRequest : oldRequest);
                 }
             } catch (InterruptedException e) {
                 LOG.debug("Listener task is interrupted correctly.");
             } catch (ExecutionException e) {
                 LOG.error("Exception is occurred unexpectedly. ", e);
-            } finally {
-                if (lock.writeLock().isHeldByCurrentThread()) lock.writeLock().unlock();
+            }
+        }
+    }
+
+    private class ScheduledTask implements Runnable {
+        private final Request request;
+
+        ScheduledTask(Request request) {
+            this.request = request;
+        }
+
+        @Override
+        public void run() {
+            boolean isRegistered = register(request);
+            if (!isRegistered) LOG.info("{} isn't registered on failed requests set.", request);
+
+            if (!listener.isShutdown() && !repeater.isShutdown()) {
+                listener.execute(new ListenerTask(repeaterService));
+
+                if (!closed)
+                    repeaterService.submit(new SendingTask(request));
             }
         }
     }
@@ -417,10 +424,8 @@ public abstract class AbstractMaster implements Master {
                         request.project.version,
                         request.project.data);
 
-//                LOG.debug("[+] => {} => {}.", request.slave.getName(), request);
                 return request.setCodeAndReturn(Request.Code.DELIVERED);
             } catch (Exception e) {
-//                LOG.debug("[-] => {} => {}.", request.slave.getName(), request);
                 return request.setCodeAndReturn(Request.Code.REJECTED);
             } finally {
                 LOG.trace("sendingTask: {}ms", System.currentTimeMillis() - startTime);

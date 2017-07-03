@@ -103,7 +103,7 @@ public class GeneralMasterTest {
                 master.postProject("project_" + i, "data");
 
             try {
-                Thread.sleep(10);
+                Thread.sleep(1000);
                 master.close();
             } catch (InterruptedException | IOException e) {
                 e.printStackTrace();

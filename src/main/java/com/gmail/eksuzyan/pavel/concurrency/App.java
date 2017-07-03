@@ -19,7 +19,7 @@ public class App {
 
     private final static Logger LOG = LoggerFactory.getLogger(App.class);
 
-    private final static Duration DELAY = Duration.of(1, ChronoUnit.MINUTES);
+    private final static Duration DELAY = Duration.of(5, ChronoUnit.SECONDS);
 
     public static void main(String[] args) throws InterruptedException {
 
@@ -27,10 +27,11 @@ public class App {
 
         HealthyMaster master = new HealthyMaster(
                 new HealthySlave("healthy-1"),
-                new ThrowingSlave(),
-                new PendingSlave(),
-                new HealthySlave(),
-                new HealthySlave("healthy-2"));
+                new HealthySlave("healthy-3"),
+                new HealthySlave("healthy-4"),
+                new HealthySlave("healthy-2"),
+                new ThrowingSlave("throwiny")
+        );
 
         master.postProject("England", "London");
         master.postProject("Germany", "Berlin");
