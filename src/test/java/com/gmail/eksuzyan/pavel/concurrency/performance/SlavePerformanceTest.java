@@ -4,130 +4,246 @@ import com.gmail.eksuzyan.pavel.concurrency.master.Master;
 import com.gmail.eksuzyan.pavel.concurrency.master.impl.HealthyMaster;
 import com.gmail.eksuzyan.pavel.concurrency.slave.Slave;
 import com.gmail.eksuzyan.pavel.concurrency.slave.impl.HealthySlave;
+import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
+
+import java.io.IOException;
+import java.util.concurrent.CountDownLatch;
 
 /**
  * @author Pavel Eksuzian.
  *         Created: 12.04.2017.
  */
-public class  SlavePerformanceTest {
+@SuppressWarnings("Duplicates")
+public class SlavePerformanceTest {
 
-    @Test
-    public void postProject() {
+    private Master master;
 
-        Slave[] slaves = new Slave[] {new HealthySlave()};
-        Master master = new HealthyMaster(slaves);
-
-        master.postProject("country", "city");
-
+    @After
+    public void tearDown() throws IOException {
         try {
-            Thread.sleep(5);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
+            if (master != null) master.close();
+        } catch (IllegalStateException ignore) {
+            /* NOP */
         }
-
-        Assert.assertEquals(1, slaves[0].getProjects().size());
     }
 
     @Test
-    public void postTwoProjects() {
+    public void postProject() throws InterruptedException {
 
-        Slave[] slaves = new Slave[] {new HealthySlave()};
-        Master master = new HealthyMaster(slaves);
+        final CountDownLatch latch = new CountDownLatch(1);
 
-        master.postProject("country_1", "city");
-        master.postProject("country_2", "city");
-
-        try {
-            Thread.sleep(6);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        Assert.assertEquals(2, slaves[0].getProjects().size());
-    }
-
-    @Test
-    public void postProjects() {
-
-        Slave[] slaves = new Slave[] {new HealthySlave()};
-        Master master = new HealthyMaster(slaves);
-
-        int messages = 100;
-
-        for (int i = 0; i < messages; i++)
-            master.postProject("country_" + i, "city_" + i);
-
-        try {
-            Thread.sleep(34);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        Assert.assertEquals(messages, slaves[0].getProjects().size());
-    }
-
-    @Test
-    public void postDecadesProjects() {
+        final int projectsCount = 1;
 
         Slave[] slaves = new Slave[]{new HealthySlave()};
-        Master master = new HealthyMaster(slaves);
 
-        int messages = 10_000;
+        master = new HealthyMaster(slaves);
 
-        for (int i = 0; i < messages; i++)
-            master.postProject("country_" + i, "city_" + i);
+        new Thread(() -> {
+            int i = 0;
+            while (i++ < projectsCount)
+                master.postProject("project", "data");
 
-        try {
-            Thread.sleep(100);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
+            latch.countDown();
+        }).start();
 
-        Assert.assertEquals(messages, slaves[0].getProjects().size());
-        // was: ~700
-        // now: ~2400
+        latch.await();
+
+        Thread.sleep(10);
+
+        Assert.assertEquals(projectsCount, slaves[0].getProjects().size());
     }
 
     @Test
-    public void postHundredsProjects() {
+    public void postDecadeProjects() throws InterruptedException {
+
+        final CountDownLatch latch = new CountDownLatch(1);
+
+        final int projectsCount = 10;
 
         Slave[] slaves = new Slave[]{new HealthySlave()};
-        Master master = new HealthyMaster(slaves);
 
-        int messages = 100_000;
+        master = new HealthyMaster(slaves);
 
-        for (int i = 0; i < messages; i++)
-            master.postProject("country_" + i, "city_" + i);
+        new Thread(() -> {
+            int i = 0;
+            while (i++ < projectsCount)
+                master.postProject("project_" + i, "data_" + i);
 
-        try {
-            Thread.sleep(100);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
+            latch.countDown();
+        }).start();
 
-        Assert.assertEquals(messages, slaves[0].getProjects().size());
+        latch.await();
+
+        Thread.sleep(25);
+
+        Assert.assertEquals(projectsCount, slaves[0].getProjects().size());
     }
 
     @Test
-    public void postThousandsProjects() {
+    public void postHundredProjects() throws InterruptedException {
+
+        final CountDownLatch latch = new CountDownLatch(1);
+
+        final int projectsCount = 100;
 
         Slave[] slaves = new Slave[]{new HealthySlave()};
-        Master master = new HealthyMaster(slaves);
 
-        int messages = 1_000_000;
+        master = new HealthyMaster(slaves);
 
-        for (int i = 0; i < messages; i++)
-            master.postProject("country_" + i, "city_" + i);
+        new Thread(() -> {
+            int i = 0;
+            while (i++ < projectsCount)
+                master.postProject("project_" + i, "data_" + i);
 
-        try {
-            Thread.sleep(1000);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
+            latch.countDown();
+        }).start();
 
-        Assert.assertEquals(messages, slaves[0].getProjects().size());
+        latch.await();
+
+        Thread.sleep(50);
+
+        Assert.assertEquals(projectsCount, slaves[0].getProjects().size());
+    }
+
+    @Test
+    public void postThousandProjects() throws InterruptedException {
+
+        final CountDownLatch latch = new CountDownLatch(1);
+
+        final int projectsCount = 1_000;
+
+        Slave[] slaves = new Slave[]{new HealthySlave()};
+
+        master = new HealthyMaster(slaves);
+
+        new Thread(() -> {
+            int i = 0;
+            while (i++ < projectsCount)
+                master.postProject("project_" + i, "data_" + i);
+
+            latch.countDown();
+        }).start();
+
+        latch.await();
+
+        Thread.sleep(100);
+
+        Assert.assertEquals(projectsCount, slaves[0].getProjects().size());
+    }
+
+    @Test
+    public void postDecadeThousandsProjects() throws InterruptedException {
+
+        final CountDownLatch latch = new CountDownLatch(1);
+
+        final int projectsCount = 10_000;
+
+        Slave[] slaves = new Slave[]{new HealthySlave()};
+
+        master = new HealthyMaster(slaves);
+
+        new Thread(() -> {
+            int i = 0;
+            while (i++ < projectsCount)
+                master.postProject("project_" + i, "data_" + i);
+
+            latch.countDown();
+        }).start();
+
+        latch.await();
+
+        Thread.sleep(1_000);
+
+        Assert.assertEquals(projectsCount, slaves[0].getProjects().size());
+    }
+
+    @Test
+    public void postHundredThousandsProjects() throws InterruptedException {
+
+        final CountDownLatch latch = new CountDownLatch(1);
+
+        final int projectsCount = 100_000;
+
+        Slave[] slaves = new Slave[]{new HealthySlave()};
+
+        master = new HealthyMaster(slaves);
+
+        new Thread(() -> {
+            int i = 0;
+            while (i++ < projectsCount)
+                master.postProject("project_" + i, "data_" + i);
+
+            latch.countDown();
+        }).start();
+
+        latch.await();
+
+        Thread.sleep(15_000);
+
+        Assert.assertEquals(projectsCount, slaves[0].getProjects().size());
+    }
+
+    @Test
+    public void postMillionProjects() throws InterruptedException {
+
+        final CountDownLatch latch = new CountDownLatch(1);
+
+        final int projectsCount = 1_000_000;
+
+        Slave[] slaves = new Slave[]{new HealthySlave()};
+
+        master = new HealthyMaster(slaves);
+
+        new Thread(() -> {
+            int i = 0;
+            while (i++ < projectsCount)
+                master.postProject("project_" + i, "data_" + i);
+
+            latch.countDown();
+        }).start();
+
+        latch.await();
+
+        Thread.sleep(120_000);
+
+        Assert.assertEquals(projectsCount, slaves[0].getProjects().size());
+    }
+
+    @Test
+    public void postProjectsAndCheckFailed() throws InterruptedException, IOException {
+
+        final CountDownLatch latch = new CountDownLatch(1);
+
+        final int projectsCount = 100_000;
+
+        Slave[] slaves = new Slave[]{new HealthySlave()};
+
+        master = new HealthyMaster(slaves);
+
+        new Thread(() -> {
+            int i = 0;
+            while (i++ < projectsCount)
+                master.postProject("project_" + i, "data");
+
+            latch.countDown();
+        }).start();
+
+        latch.await();
+
+        Thread.sleep(15_000);
+
+        master.close();
+
+        int expected = 10;
+        boolean result = master.getFailed().size() < expected;
+
+        System.out.println(
+                "[RESULT] Set size: " + master.getFailed().size() + ". " +
+                        "Expected value: < " + expected + ".");
+
+        Assert.assertTrue(result);
     }
 
 }

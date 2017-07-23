@@ -58,7 +58,7 @@ public class InitMasterTest {
 
     @Test(expected = IllegalArgumentException.class)
     public void passSlavesWithNull() {
-        Slave[] slaves = new Slave[] {null};
+        Slave[] slaves = new Slave[]{null};
         Master master = new HealthyMaster(slaves);
     }
 

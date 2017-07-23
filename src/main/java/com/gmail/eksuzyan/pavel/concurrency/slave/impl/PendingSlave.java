@@ -3,7 +3,6 @@ package com.gmail.eksuzyan.pavel.concurrency.slave.impl;
 import com.gmail.eksuzyan.pavel.concurrency.entities.Project;
 import com.gmail.eksuzyan.pavel.concurrency.slave.AbstractSlave;
 
-import java.io.IOException;
 import java.util.Collection;
 
 /**

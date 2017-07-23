@@ -9,6 +9,7 @@ import java.util.Collection;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Presents a base implementation of slave interface.
@@ -26,7 +27,7 @@ public abstract class AbstractSlave implements Slave {
     /**
      * Counter serves to generate unique slave ID.
      */
-    private static long slaveCounter = 0L;
+    private static AtomicLong slaveCounter = new AtomicLong();
 
     /**
      * Default slave name.
@@ -54,9 +55,11 @@ public abstract class AbstractSlave implements Slave {
      * @param name slave name
      */
     protected AbstractSlave(String name) {
-        long id = ++slaveCounter;
+        long id = slaveCounter.incrementAndGet();
         this.name = (name == null || name.trim().isEmpty())
                 ? String.format("%s-%d", DEFAULT_NAME, id) : name;
+
+        LOG.info("{} initialized.", getName());
     }
 
     /**
@@ -85,10 +88,16 @@ public abstract class AbstractSlave implements Slave {
 
         Project oldProject = projects.putIfAbsent(projectId, newProject);
 
+        boolean isAdded = true;
         if (Objects.nonNull(oldProject)
                 && !Objects.equals(oldProject, newProject)
                 && oldProject.version < newProject.version) {
-            projects.replace(projectId, oldProject, newProject);
+            isAdded = projects.replace(projectId, oldProject, newProject);
+        }
+
+        if (!isAdded) {
+            LOG.warn("{} isn't inserted into slave store.", newProject);
+            return;
         }
 
         LOG.trace("slavePostProjectDefault: {}ms", System.currentTimeMillis() - startTime);
@@ -108,7 +117,8 @@ public abstract class AbstractSlave implements Slave {
      */
     protected void shutdownDefault() {
 
-        if (closed) return;
+        if (closed)
+            throw new IllegalStateException(getName() + " closed already.");
 
         closed = true;
 

@@ -5,8 +5,9 @@ import com.gmail.eksuzyan.pavel.concurrency.entities.Request;
 import com.gmail.eksuzyan.pavel.concurrency.master.Master;
 import com.gmail.eksuzyan.pavel.concurrency.master.impl.HealthyMaster;
 import com.gmail.eksuzyan.pavel.concurrency.slave.Slave;
+import com.gmail.eksuzyan.pavel.concurrency.slave.impl.AlwaysThrowingSlave;
 import com.gmail.eksuzyan.pavel.concurrency.slave.impl.HealthySlave;
-import com.gmail.eksuzyan.pavel.concurrency.slave.impl.ThrowingSlave;
+import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -20,42 +21,165 @@ import java.util.concurrent.CountDownLatch;
 @SuppressWarnings("Duplicates")
 public class GeneralMasterTest {
 
-    @Test
-    public void postAndGetProjects() throws InterruptedException {
+    private static final int DELAY = 100;
 
-        final int projectsCount = 10_000;
+    private Master master;
 
-        final Master master = new HealthyMaster(null);
-
-        new Thread(() -> {
-            int i = 0;
-            while (i++ < projectsCount)
-                master.postProject("project_" + i, "data");
-        }).start();
-
-        Thread.sleep(10);
-
-        for (Project project : master.getProjects())
-            Thread.sleep(1);
+    @After
+    public void tearDown() throws IOException {
+        try {
+            if (master != null) master.close();
+        } catch (IllegalStateException ignore) {
+            /* NOP */
+        }
     }
 
     @Test
-    public void postProjectAndGetFailed() throws InterruptedException {
+    public void postAndGetProjects() throws InterruptedException {
 
-        final int projectsCount = 1_000_000;
+        final CountDownLatch latch = new CountDownLatch(1);
 
-        final Master master = new HealthyMaster(new ThrowingSlave());
+        final int projectsCount = 1;
+
+        master = new HealthyMaster(null);
 
         new Thread(() -> {
             int i = 0;
             while (i++ < projectsCount)
                 master.postProject("project_" + i, "data");
+
+            latch.countDown();
         }).start();
 
-        Thread.sleep(10);
+        Thread.sleep(DELAY);
 
-        for (Request request : master.getFailed())
-            Thread.sleep(1);
+        latch.await();
+
+        Assert.assertEquals(projectsCount, master.getProjects().size());
+    }
+
+    @Test
+    public void postAndGetFailed() throws InterruptedException {
+
+        final CountDownLatch latch = new CountDownLatch(1);
+
+        final int projectsCount = 1;
+
+        master = new HealthyMaster(null);
+
+        new Thread(() -> {
+            int i = 0;
+            while (i++ < projectsCount)
+                master.postProject("project_" + i, "data");
+
+            latch.countDown();
+        }).start();
+
+        Thread.sleep(DELAY);
+
+        latch.await();
+
+        Assert.assertEquals(0, master.getFailed().size());
+    }
+
+    @Test
+    public void postTwoSameAndGetProjects() throws InterruptedException {
+
+        final CountDownLatch latch = new CountDownLatch(1);
+
+        final int projectsCount = 2;
+
+        master = new HealthyMaster(null);
+
+        new Thread(() -> {
+            int i = 0;
+            while (i++ < projectsCount)
+                master.postProject("project", "data_" + i);
+
+            latch.countDown();
+        }).start();
+
+        Thread.sleep(DELAY);
+
+        latch.await();
+
+        Assert.assertEquals(1, master.getProjects().size());
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void postWithNullIdAndGetProjects() {
+        Master master = new HealthyMaster();
+        master.postProject(null, "city");
+    }
+
+    @Test
+    public void postWithNullDataAndGetProjects() throws InterruptedException {
+
+        final int projectsCount = 1;
+
+        master = new HealthyMaster();
+
+        master.postProject("project", null);
+
+        Thread.sleep(DELAY);
+
+        Assert.assertEquals(projectsCount, master.getProjects().size());
+    }
+
+    @Test
+    public void postProjectAndGetNotEmptyFailed() throws InterruptedException {
+
+        final CountDownLatch latch = new CountDownLatch(1);
+
+        final int projectsCount = 1;
+
+        master = new HealthyMaster(new AlwaysThrowingSlave());
+
+        new Thread(() -> {
+            int i = 0;
+            while (i++ < projectsCount)
+                master.postProject("project_" + i, "data");
+
+            try {
+                master.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            } finally {
+                latch.countDown();
+            }
+        }).start();
+
+        Thread.sleep(DELAY);
+
+        latch.await();
+
+        Assert.assertEquals(projectsCount, master.getFailed().size());
+    }
+
+    @Test
+    public void postProjectAndGetEmptyFailed() throws InterruptedException, IOException {
+
+        final CountDownLatch latch = new CountDownLatch(1);
+
+        final int projectsCount = 1;
+
+        master = new HealthyMaster(new HealthySlave());
+
+        new Thread(() -> {
+            int i = 0;
+            while (i++ < projectsCount)
+                master.postProject("project_" + i, "data");
+
+            latch.countDown();
+        }).start();
+
+        Thread.sleep(DELAY);
+
+        master.close();
+
+        latch.await();
+
+        Assert.assertEquals(0, master.getFailed().size());
     }
 
     @Test
@@ -65,21 +189,17 @@ public class GeneralMasterTest {
 
         final int projectsCount = 1;
 
-        final Master master = new HealthyMaster(null);
+        master = new HealthyMaster(null);
 
         new Thread(() -> {
             int i = 0;
             while (i++ < projectsCount)
                 master.postProject("project_" + i, "data");
 
-            try {
-                Thread.sleep(10);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            } finally {
-                latch.countDown();
-            }
+            latch.countDown();
         }).start();
+
+        Thread.sleep(DELAY);
 
         latch.await();
 
@@ -95,7 +215,7 @@ public class GeneralMasterTest {
 
         final int projectsCount = 1;
 
-        final Master master = new HealthyMaster(new ThrowingSlave());
+        master = new HealthyMaster(new AlwaysThrowingSlave());
 
         new Thread(() -> {
             int i = 0;
@@ -103,14 +223,15 @@ public class GeneralMasterTest {
                 master.postProject("project_" + i, "data");
 
             try {
-                Thread.sleep(1000);
                 master.close();
-            } catch (InterruptedException | IOException e) {
+            } catch (IOException e) {
                 e.printStackTrace();
             } finally {
                 latch.countDown();
             }
         }).start();
+
+        Thread.sleep(DELAY);
 
         latch.await();
 
@@ -122,9 +243,9 @@ public class GeneralMasterTest {
     @Test
     public void getAndModifySlaves() throws InterruptedException {
 
-        Slave[] slaves = new Slave[] {new HealthySlave()};
+        Slave[] slaves = new Slave[]{new HealthySlave()};
 
-        Master master = new HealthyMaster(slaves);
+        master = new HealthyMaster(slaves);
 
         master.getSlaves().add(new HealthySlave());
 
@@ -134,7 +255,7 @@ public class GeneralMasterTest {
     @Test(expected = IllegalStateException.class)
     public void closeMasterAndPostProject() throws InterruptedException, IOException {
 
-        Master master = new HealthyMaster(null);
+        master = new HealthyMaster(null);
 
         master.close();
 
@@ -144,7 +265,7 @@ public class GeneralMasterTest {
     @Test(expected = IllegalStateException.class)
     public void closeMasterAndCloseAgain() throws InterruptedException, IOException {
 
-        Master master = new HealthyMaster(null);
+        master = new HealthyMaster(null);
 
         master.close();
 

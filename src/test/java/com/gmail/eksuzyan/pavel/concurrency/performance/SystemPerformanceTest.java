@@ -2,6 +2,7 @@ package com.gmail.eksuzyan.pavel.concurrency.performance;
 
 import com.gmail.eksuzyan.pavel.concurrency.entities.Project;
 import com.gmail.eksuzyan.pavel.concurrency.entities.Request;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.time.LocalDateTime;
@@ -13,6 +14,7 @@ import java.util.Queue;
  * @author Pavel Eksuzian.
  *         Created: 03.04.2017.
  */
+@Ignore
 @SuppressWarnings({"ResultOfMethodCallIgnored", "MismatchedQueryAndUpdateOfCollection"})
 public class SystemPerformanceTest {
 

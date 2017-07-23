@@ -5,6 +5,7 @@ import com.gmail.eksuzyan.pavel.concurrency.master.Master;
 import com.gmail.eksuzyan.pavel.concurrency.master.impl.HealthyMaster;
 import com.gmail.eksuzyan.pavel.concurrency.slave.Slave;
 import com.gmail.eksuzyan.pavel.concurrency.slave.impl.HealthySlave;
+import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -18,14 +19,23 @@ import java.util.concurrent.CountDownLatch;
 @SuppressWarnings("Duplicates")
 public class GeneralSlaveTest {
 
+    private static final int DELAY = 100;
+    private Master master;
+
+    @After
+    public void tearDown() throws IOException {
+        if (master != null)
+            master.close();
+    }
+
     @Test
     public void plainTest() throws InterruptedException {
 
-        Master master = new HealthyMaster(new HealthySlave());
+        master = new HealthyMaster(new HealthySlave());
 
         master.postProject("project", "data");
 
-        Thread.sleep(1000);
+        Thread.sleep(DELAY);
 
         Assert.assertEquals(1, master.getProjects().size());
     }
@@ -33,21 +43,53 @@ public class GeneralSlaveTest {
     @Test
     public void postAndGetProjects() throws InterruptedException {
 
-        final int projectsCount = 10_000;
+        final CountDownLatch latch = new CountDownLatch(1);
 
-        final Master master = new HealthyMaster(new HealthySlave());
+        final int projectsCount = 1;
+
+        Slave[] slaves = new Slave[]{new HealthySlave()};
+
+        master = new HealthyMaster(slaves);
 
         new Thread(() -> {
             int i = 0;
             while (i++ < projectsCount)
                 master.postProject("project_" + i, "data");
+
+            latch.countDown();
         }).start();
 
-        Thread.sleep(10);
+        Thread.sleep(DELAY);
 
-        for (Slave slave : master.getSlaves())
-            for (Project project : slave.getProjects())
-                Thread.sleep(1);
+        latch.await();
+
+        Assert.assertEquals(projectsCount, slaves[0].getProjects().size());
+    }
+
+    @Test
+    public void postTwoSameAndGetProjects() throws InterruptedException {
+
+        final CountDownLatch latch = new CountDownLatch(1);
+
+        final int projectsCount = 2;
+
+        Slave[] slaves = new Slave[]{new HealthySlave()};
+
+        master = new HealthyMaster(slaves);
+
+        new Thread(() -> {
+            int i = 0;
+            while (i++ < projectsCount)
+                master.postProject("project", "data_" + i);
+
+            latch.countDown();
+        }).start();
+
+        Thread.sleep(DELAY);
+
+        latch.await();
+
+        Assert.assertEquals(1, slaves[0].getProjects().size());
     }
 
     @Test
@@ -57,65 +99,90 @@ public class GeneralSlaveTest {
 
         final int projectsCount = 1;
 
-        final Master master = new HealthyMaster(new HealthySlave());
+        Slave[] slaves = new Slave[]{new HealthySlave()};
+
+        master = new HealthyMaster(slaves);
 
         new Thread(() -> {
             int i = 0;
             while (i++ < projectsCount)
                 master.postProject("project_" + i, "data");
 
-            try {
-                Thread.sleep(10);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            } finally {
-                latch.countDown();
-            }
+            latch.countDown();
         }).start();
+
+        Thread.sleep(DELAY);
 
         latch.await();
 
-        master.getSlaves().forEach(slave ->
-                slave.getProjects().add(new Project("project", "data")));
-
-        master.getSlaves().forEach(slave ->
-                Assert.assertEquals(projectsCount, slave.getProjects().size()));
+        for (Slave slave : slaves) {
+            slave.getProjects().add(new Project("project", "data"));
+            Assert.assertEquals(projectsCount, slave.getProjects().size());
+        }
     }
 
     @Test
-    public void closeMasterAndPostProject() throws InterruptedException, IOException {
+    public void closeSlaveAndPostProject() throws InterruptedException, IOException {
 
-        Slave[] slaves = new Slave[] {new HealthySlave()};
+        final CountDownLatch latch = new CountDownLatch(1);
 
-        Master master = new HealthyMaster(slaves);
+        final int projectsCount = 1;
 
-        slaves[0].close();
+        Slave[] slaves = new Slave[]{new HealthySlave()};
 
-        master.postProject("project", "data");
+        master = new HealthyMaster(slaves);
 
-        Thread.sleep(50);
+        for (Slave slave : slaves) {
+            slave.close();
+        }
 
-        master.getSlaves().forEach(slave ->
-                Assert.assertEquals(0, slave.getProjects().size()));
+        new Thread(() -> {
+            int i = 0;
+            while (i++ < projectsCount)
+                master.postProject("project_" + i, "data");
+
+            latch.countDown();
+        }).start();
+
+        Thread.sleep(DELAY);
+
+        latch.await();
+
+        for (Slave slave : slaves) {
+            Assert.assertEquals(0, slave.getProjects().size());
+        }
     }
 
-    @Test
-    public void closeMasterAndCloseAgain() throws InterruptedException, IOException {
+    @Test(expected = IllegalStateException.class)
+    public void closeSlaveAndCloseAgain() throws InterruptedException, IOException {
 
-        Slave[] slaves = new Slave[] {new HealthySlave()};
+        final CountDownLatch latch = new CountDownLatch(1);
 
-        Master master = new HealthyMaster(slaves);
+        final int projectsCount = 1;
 
-        slaves[0].close();
+        Slave[] slaves = new Slave[]{new HealthySlave()};
 
-        master.postProject("project", "data");
+        master = new HealthyMaster(slaves);
 
-        Thread.sleep(50);
+        for (Slave slave : slaves) {
+            slave.close();
+        }
 
-        slaves[0].close();
+        new Thread(() -> {
+            int i = 0;
+            while (i++ < projectsCount)
+                master.postProject("project_" + i, "data");
 
-        master.getSlaves().forEach(slave ->
-                Assert.assertEquals(0, slave.getProjects().size()));
+            latch.countDown();
+        }).start();
+
+        Thread.sleep(DELAY);
+
+        latch.await();
+
+        for (Slave slave : slaves) {
+            slave.close();
+        }
     }
 
 }

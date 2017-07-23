@@ -7,22 +7,21 @@ import java.util.Collection;
 
 /**
  * @author Pavel Eksuzian.
- *         Created: 22.03.2017.
+ *         Created: 09.07.2017.
  */
-public class ThrowingSlave extends AbstractSlave {
+public class AlwaysThrowingSlave extends AbstractSlave {
 
-    public ThrowingSlave() {
+    public AlwaysThrowingSlave() {
         this(null);
     }
 
-    public ThrowingSlave(String name) {
+    public AlwaysThrowingSlave(String name) {
         super(name);
     }
 
     @Override
     public void postProject(String projectId, long version, String data) throws Exception {
-        if (Math.random() > 0.2) throw new Exception();
-        postProjectDefault(projectId, version, data);
+        throw new Exception();
     }
 
     @Override

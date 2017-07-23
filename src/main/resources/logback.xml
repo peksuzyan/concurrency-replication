@@ -10,8 +10,8 @@
         </encoder>
     </appender>
 
-    <root level="TRACE">
-        <appender-ref ref="STDOUT" />
+    <root level="DEBUG">
+        <appender-ref ref="STDOUT"/>
     </root>
 
 </configuration>

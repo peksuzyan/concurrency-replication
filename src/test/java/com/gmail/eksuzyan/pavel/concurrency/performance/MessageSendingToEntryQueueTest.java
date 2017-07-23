@@ -6,21 +6,22 @@ import com.gmail.eksuzyan.pavel.concurrency.slave.Slave;
 import com.gmail.eksuzyan.pavel.concurrency.slave.impl.HealthySlave;
 import com.gmail.eksuzyan.pavel.concurrency.slave.impl.PendingSlave;
 import com.gmail.eksuzyan.pavel.concurrency.slave.impl.ThrowingSlave;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 
-import static org.junit.Assert.assertEquals;
-
 /**
  * @author Pavel Eksuzian.
  *         Created: 03.04.2017.
  */
+@SuppressWarnings("Duplicates")
+@Ignore
 public class MessageSendingToEntryQueueTest {
 
-    @Test(timeout = 5000)
+    @Test(timeout = 5_000)
     public void testOneThreadWithManyMessagesEqualProjects() {
 
         Master master = new HealthyMaster(
@@ -33,7 +34,7 @@ public class MessageSendingToEntryQueueTest {
         }
     }
 
-    @Test(timeout = 5000)
+    @Test(timeout = 5_000)
     public void testOneThreadWithManyMessagesUniqueProjects() {
 
         Master master = new HealthyMaster(
@@ -46,13 +47,13 @@ public class MessageSendingToEntryQueueTest {
         }
     }
 
-    @Test(timeout = 20000)
+    @Test(timeout = 10_000)
     public void testManyThreadsWithOneMessageEqualProjects() throws InterruptedException {
 
         Master master = new HealthyMaster(
                 new HealthySlave());
 
-        final int threadsCount = 6_000;
+        final int threadsCount = 10_000;
 
         final CountDownLatch startLatch = new CountDownLatch(threadsCount);
         final CountDownLatch finishLatch = new CountDownLatch(threadsCount);
@@ -74,19 +75,15 @@ public class MessageSendingToEntryQueueTest {
         }
 
         finishLatch.await();
-
-//        System.out.println(master.getName() + ": " + master.getProjects().size() + " project(s).");
-//        master.getSlaves().forEach(s ->
-//                System.out.println(s.getName() + ": " + s.getProjects().size() + " project(s)."));
     }
 
-    @Test(timeout = 10000)
+    @Test(timeout = 10_000)
     public void testManyThreadsWithOneMessageUniqueProjects() throws InterruptedException {
 
         Master master = new HealthyMaster(
                 new HealthySlave());
 
-        final int threadsCount = 6_000;
+        final int threadsCount = 10_000;
 
         final CountDownLatch startLatch = new CountDownLatch(threadsCount);
         final CountDownLatch finishLatch = new CountDownLatch(threadsCount);
@@ -110,14 +107,14 @@ public class MessageSendingToEntryQueueTest {
         finishLatch.await();
     }
 
-    @Test
+    @Test(timeout = 10_000)
     public void testManyThreadsWithManyMessagesUniqueProjects() throws InterruptedException {
 
         Master master = new HealthyMaster(
                 new HealthySlave());
 
         final int messagesPerThread = 10;
-        final int threadsCount = 6_000;
+        final int threadsCount = 10_000;
 
         final CountDownLatch startLatch = new CountDownLatch(threadsCount);
         final CountDownLatch finishLatch = new CountDownLatch(threadsCount);
@@ -141,21 +138,21 @@ public class MessageSendingToEntryQueueTest {
         }
 
         finishLatch.await();
-
-        System.out.println(master.getName() + ": " + master.getProjects().size() + " project(s).");
-        master.getSlaves().forEach(s ->
-                System.out.println(s.getName() + ": " + s.getProjects().size() + " project(s)."));
-        System.out.println(master.getName() + ": " + master.getFailed().size() + " request(s).");
+//
+//        System.out.println(master.getName() + ": " + master.getProjects().size() + " project(s).");
+//        master.getSlaves().forEach(s ->
+//                System.out.println(s.getName() + ": " + s.getProjects().size() + " project(s)."));
+//        System.out.println(master.getName() + ": " + master.getFailed().size() + " request(s).");
     }
 
-    @Test
+    @Test(timeout = 50_000)
     public void testManyThreadsWithManyMessagesEqualProjects() throws InterruptedException {
 
         Master master = new HealthyMaster(
                 new HealthySlave());
 
         final int messagesPerThread = 10;
-        final int threadsCount = 6_000;
+        final int threadsCount = 10_000;
 
         final CountDownLatch startLatch = new CountDownLatch(threadsCount);
         final CountDownLatch finishLatch = new CountDownLatch(threadsCount);
@@ -180,11 +177,11 @@ public class MessageSendingToEntryQueueTest {
         finishLatch.await();
     }
 
-    @Test
+    @Test(timeout = 50_000)
     public void testManyThreadsWithManyMessagesUniqueProjectsManyHealthySlaves()
             throws InterruptedException {
 
-        Slave[] slaves = new Slave[1_000_000];
+        Slave[] slaves = new Slave[1_000];
 
         for (int i = 0; i < slaves.length; i++) {
             slaves[i] = new HealthySlave();
@@ -193,7 +190,7 @@ public class MessageSendingToEntryQueueTest {
         Master master = new HealthyMaster(slaves);
 
         final int messagesPerThread = 10;
-        final int threadsCount = 6_000;
+        final int threadsCount = 10_000;
 
         final CountDownLatch startLatch = new CountDownLatch(threadsCount);
         final CountDownLatch finishLatch = new CountDownLatch(threadsCount);
@@ -219,11 +216,11 @@ public class MessageSendingToEntryQueueTest {
         finishLatch.await();
     }
 
-    @Test
+    @Test(timeout = 50_000)
     public void testManyThreadsWithManyMessagesUniqueProjectsManyPendingSlaves()
             throws InterruptedException {
 
-        Slave[] slaves = new Slave[1_000_000];
+        Slave[] slaves = new Slave[1_000];
 
         for (int i = 0; i < slaves.length; i++) {
             slaves[i] = new PendingSlave();
@@ -232,7 +229,7 @@ public class MessageSendingToEntryQueueTest {
         Master master = new HealthyMaster(slaves);
 
         final int messagesPerThread = 10;
-        final int threadsCount = 6_000;
+        final int threadsCount = 10_000;
 
         final CountDownLatch startLatch = new CountDownLatch(threadsCount);
         final CountDownLatch finishLatch = new CountDownLatch(threadsCount);
@@ -258,11 +255,11 @@ public class MessageSendingToEntryQueueTest {
         finishLatch.await();
     }
 
-    @Test
+    @Test(timeout = 50_000)
     public void testManyThreadsWithManyMessagesUniqueProjectsManyThrowingSlaves()
             throws InterruptedException {
 
-        Slave[] slaves = new Slave[1_000_000];
+        Slave[] slaves = new Slave[1_000];
 
         for (int i = 0; i < slaves.length; i++) {
             slaves[i] = new ThrowingSlave();
@@ -271,7 +268,7 @@ public class MessageSendingToEntryQueueTest {
         Master master = new HealthyMaster(slaves);
 
         final int messagesPerThread = 10;
-        final int threadsCount = 6_000;
+        final int threadsCount = 10_000;
 
         final CountDownLatch startLatch = new CountDownLatch(threadsCount);
         final CountDownLatch finishLatch = new CountDownLatch(threadsCount);
@@ -297,13 +294,13 @@ public class MessageSendingToEntryQueueTest {
         finishLatch.await();
     }
 
-    @Test
+    @Test(timeout = 50_000)
     public void testManyThreadsWithManyMessagesUniqueProjectsManyDifferentSlaves()
             throws InterruptedException {
 
         List<Slave> slaves = new ArrayList<>();
 
-        for (int i = 0; i < 1_000_000 / 3; i++) {
+        for (int i = 0; i < 1_000 / 3; i++) {
             slaves.add(new HealthySlave());
             slaves.add(new PendingSlave());
             slaves.add(new ThrowingSlave());
@@ -312,7 +309,7 @@ public class MessageSendingToEntryQueueTest {
         Master master = new HealthyMaster(slaves.toArray(new Slave[slaves.size()]));
 
         final int messagesPerThread = 10;
-        final int threadsCount = 6_000;
+        final int threadsCount = 10_000;
 
         final CountDownLatch startLatch = new CountDownLatch(threadsCount);
         final CountDownLatch finishLatch = new CountDownLatch(threadsCount);

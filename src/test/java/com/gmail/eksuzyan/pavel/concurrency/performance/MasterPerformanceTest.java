@@ -2,8 +2,12 @@ package com.gmail.eksuzyan.pavel.concurrency.performance;
 
 import com.gmail.eksuzyan.pavel.concurrency.master.Master;
 import com.gmail.eksuzyan.pavel.concurrency.master.impl.HealthyMaster;
+import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
+
+import java.io.IOException;
+import java.util.concurrent.CountDownLatch;
 
 /**
  * @author Pavel Eksuzian.
@@ -12,109 +16,97 @@ import org.junit.Test;
 @SuppressWarnings("Duplicates")
 public class MasterPerformanceTest {
 
+    private Master master;
+
+    @After
+    public void tearDown() throws IOException {
+        try {
+            if (master != null) master.close();
+        } catch (IllegalStateException ignore) {
+            /* NOP */
+        }
+    }
+
     @Test
-    public void postProject() {
+    public void postProject() throws InterruptedException {
 
         Master master = new HealthyMaster();
 
         master.postProject("country", "city");
 
-        try {
-            Thread.sleep(4);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        Assert.assertEquals(1, master.getProjects().size());
-    }
-
-    @Test(expected = IllegalArgumentException.class)
-    public void postProjectWithNullId() {
-        Master master = new HealthyMaster();
-        master.postProject(null, "city");
-    }
-
-    @Test
-    public void postProjectWithNullData() {
-        Master master = new HealthyMaster();
-
-        master.postProject("country", null);
-
-        try {
-            Thread.sleep(4);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
+        Thread.sleep(4);
 
         Assert.assertEquals(1, master.getProjects().size());
     }
 
     @Test
-    public void postProjects() {
+    public void postProjects() throws InterruptedException {
         Master master = new HealthyMaster();
 
         master.postProject("country_1", "city");
         master.postProject("country_2", "city");
 
-        try {
-            Thread.sleep(4);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
+        Thread.sleep(4);
 
         Assert.assertEquals(2, master.getProjects().size());
     }
 
     @Test
-    public void postProjectsWithTheSameIds() {
+    public void postProjectsWithTheSameIds() throws InterruptedException {
         Master master = new HealthyMaster();
 
         master.postProject("country", "city_1");
         master.postProject("country", "city_2");
 
-        try {
-            Thread.sleep(4);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
+        Thread.sleep(4);
 
         Assert.assertEquals(1, master.getProjects().size());
     }
 
     @Test
-    public void postManyProjects() {
+    public void postManyProjects() throws InterruptedException {
 
-        Master master = new HealthyMaster();
+        final CountDownLatch latch = new CountDownLatch(1);
 
-        int messages = 1_000_000;
+        final int projectsCount = 1_000_000;
 
-        for (int i = 0; i < messages; i++)
-            master.postProject("country_" + i, "city_" + i);
+        master = new HealthyMaster();
 
-        try {
-            Thread.sleep(125);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
+        new Thread(() -> {
+            int i = 0;
+            while (i++ < projectsCount)
+                master.postProject("project_" + i, "data_" + i);
 
-        Assert.assertEquals(messages, master.getProjects().size());
+            latch.countDown();
+        }).start();
+
+        latch.await();
+
+        Thread.sleep(150);
+
+        Assert.assertEquals(projectsCount, master.getProjects().size());
     }
 
     @Test
-    public void postManyProjectsWithTheSameIds() {
+    public void postManyProjectsWithTheSameIds() throws InterruptedException {
 
-        Master master = new HealthyMaster();
+        final CountDownLatch latch = new CountDownLatch(1);
 
-        int messages = 1_000_000;
+        final int projectsCount = 1_000_000;
 
-        for (int i = 0; i < messages; i++)
-            master.postProject("country", "city_" + i);
+        master = new HealthyMaster();
 
-        try {
-            Thread.sleep(125);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
+        new Thread(() -> {
+            int i = 0;
+            while (i++ < projectsCount)
+                master.postProject("project", "data_" + i);
+
+            latch.countDown();
+        }).start();
+
+        latch.await();
+
+        Thread.sleep(150);
 
         Assert.assertEquals(1, master.getProjects().size());
     }

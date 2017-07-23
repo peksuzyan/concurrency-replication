@@ -28,7 +28,7 @@ public class App {
         HealthyMaster master = new HealthyMaster(
                 new HealthySlave("healthy-1"),
                 new HealthySlave("healthy-3"),
-                new HealthySlave("healthy-4"),
+                new PendingSlave("sleepy"),
                 new HealthySlave("healthy-2"),
                 new ThrowingSlave("throwiny")
         );
