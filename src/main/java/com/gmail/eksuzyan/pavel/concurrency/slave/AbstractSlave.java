@@ -4,12 +4,14 @@ import com.gmail.eksuzyan.pavel.concurrency.entities.Project;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.stream.Collectors;
 
 /**
  * Presents a base implementation of slave interface.
@@ -50,6 +52,11 @@ public abstract class AbstractSlave implements Slave {
     private final ConcurrentMap<String, Project> projects = new ConcurrentHashMap<>();
 
     /**
+     * Locks access to read and write closing flag.
+     */
+    private final ReentrantReadWriteLock closeLock = new ReentrantReadWriteLock();
+
+    /**
      * Single constructor.
      *
      * @param name slave name
@@ -82,7 +89,12 @@ public abstract class AbstractSlave implements Slave {
     protected final void postProjectDefault(String projectId, long version, String data) {
         long startTime = System.currentTimeMillis();
 
-        if (closed) return;
+        closeLock.readLock().lock();
+        try {
+            if (closed) return;
+        } finally {
+            closeLock.readLock().unlock();
+        }
 
         Project newProject = new Project(projectId, data, version);
 
@@ -109,18 +121,30 @@ public abstract class AbstractSlave implements Slave {
      * @return a set of projects
      */
     protected final Collection<Project> getProjectsDefault() {
-        return new ArrayList<>(projects.values());
+        return projects.values().stream()
+                .sorted(Comparator.comparing(project -> project.id))
+                .collect(Collectors.toList());
     }
 
     /**
      * Stops slave.
      */
-    protected void shutdownDefault() {
+    protected final void shutdownDefault() {
 
-        if (closed)
-            throw new IllegalStateException(getName() + " closed already.");
+        closeLock.readLock().lock();
+        try {
+            if (closed)
+                throw new IllegalStateException(getName() + " closed already.");
+        } finally {
+            closeLock.readLock().unlock();
+        }
 
-        closed = true;
+        closeLock.writeLock().lock();
+        try {
+            closed = true;
+        } finally {
+            closeLock.writeLock().unlock();
+        }
 
         LOG.info("{} closed.", getName());
     }

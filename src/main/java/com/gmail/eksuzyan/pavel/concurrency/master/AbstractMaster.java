@@ -8,9 +8,11 @@ import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Presents a base implementation of master interface.
@@ -51,7 +53,7 @@ public abstract class AbstractMaster implements Master {
 
     private final Set<Request> failed = ConcurrentHashMap.newKeySet();
 
-    private ReentrantReadWriteLock closeLock = new ReentrantReadWriteLock();
+    private final ReentrantReadWriteLock closeLock = new ReentrantReadWriteLock();
 
     private static final int MAX_ATTEMPTS = 3;
 
@@ -97,12 +99,8 @@ public abstract class AbstractMaster implements Master {
      */
     private class NamedThreadFactory implements ThreadFactory {
 
-        private static final String POOL_NAME_MASK = "pool-[\\d]-thread";
-
+        private final AtomicInteger counter = new AtomicInteger();
         private final String poolName;
-
-        private final ThreadFactory defaultThreadFactory =
-                Executors.defaultThreadFactory();
 
         NamedThreadFactory(String poolName) {
             this.poolName = poolName;
@@ -110,8 +108,8 @@ public abstract class AbstractMaster implements Master {
 
         @Override
         public Thread newThread(Runnable r) {
-            Thread t = defaultThreadFactory.newThread(r);
-            t.setName(t.getName().replaceFirst(POOL_NAME_MASK, poolName));
+            Thread t = new Thread(r);
+            t.setName(String.format("%s-%d", poolName, counter.incrementAndGet()));
             return t;
         }
     }
@@ -142,7 +140,7 @@ public abstract class AbstractMaster implements Master {
         if (slaves == null || slaves.length == 0) return Collections.emptyMap();
 
         return Collections.unmodifiableMap(
-                Arrays.stream(slaves)
+                Stream.of(slaves)
                         .peek(Objects::requireNonNull)
                         .collect(Collectors.toMap(Slave::getName, slave -> slave)));
     }
@@ -161,8 +159,10 @@ public abstract class AbstractMaster implements Master {
 
         closeLock.readLock().lock();
         try {
-            if (!closed) preparator.execute(new PreparationTask(projectId, data));
-            else throw new IllegalStateException(getName() + " closed already.");
+            if (!closed)
+                preparator.execute(new PreparationTask(projectId, data));
+            else
+                throw new IllegalStateException(getName() + " closed already.");
         } finally {
             closeLock.readLock().unlock();
         }
@@ -196,22 +196,26 @@ public abstract class AbstractMaster implements Master {
     private void prepareProjectToSlaves(final Project project) {
         long startTime = System.currentTimeMillis();
 
-        Collection<Request> requests = slaves.values().stream()
-                .map(slave -> deliverToDispatcher(new Request(slave, project)))
-                .collect(Collectors.toList());
+        Set<Request> requests = slaves.values().stream()
+                .map(slave -> new Request(slave, project))
+                .collect(Collectors.toSet());
 
-        boolean isRegistered = register(requests);
+        boolean registered = register(requests);
 
-        if (!isRegistered)
+        if (!registered)
             LOG.warn("{} aren't registered on failed requests set.", requests);
 
-        requests.forEach(r -> {
-            final Runnable task = new ListenerTask(dispatcherService);
+        requests.forEach(request -> {
+            final Runnable listenerTask = new ListenerTask(dispatcherService);
+            final Callable<Request> sendingTask = new SendingTask(request);
 
             closeLock.readLock().lock();
             try {
-                if (!closed) listener.execute(task);
-                else LOG.debug("{} can't be delivered in listener because master is shutdown.", r);
+                if (!closed) {
+                    listener.execute(listenerTask);
+                    dispatcherService.submit(sendingTask);
+                } else
+                    LOG.debug("{} can't be delivered in listener and dispatcher because master is shutdown.", request);
             } finally {
                 closeLock.readLock().unlock();
             }
@@ -220,39 +224,21 @@ public abstract class AbstractMaster implements Master {
         LOG.trace("prepareProjectToSlaves: {}ms", System.currentTimeMillis() - startTime);
     }
 
-    private Request deliverToDispatcher(Request request) {
-        long startTime = System.currentTimeMillis();
-
-        final Callable<Request> task = new SendingTask(request);
-
-        closeLock.readLock().lock();
-        try {
-            if (!closed) dispatcherService.submit(task);
-            else LOG.debug("{} can't be delivered in dispatcher because master is shutdown.", request);
-        } finally {
-            closeLock.readLock().unlock();
-        }
-
-        LOG.trace("deliverToDispatcher: {}ms", System.currentTimeMillis() - startTime);
-
-        return request;
-    }
-
     private boolean register(Request request) {
         return register(Collections.singleton(request));
     }
 
     @SuppressWarnings("StatementWithEmptyBody")
-    private boolean register(Collection<Request> requests) {
+    private boolean register(Set<Request> requests) {
         long startTime = System.currentTimeMillis();
 
         int attempts = 0;
-        boolean isRegistered;
-        while (!(isRegistered = failed.addAll(requests)) && ++attempts <= MAX_ATTEMPTS) ;
+        boolean registered;
+        while (!(registered = failed.addAll(requests)) && ++attempts <= MAX_ATTEMPTS) ;
 
         LOG.trace("register: {}ms", System.currentTimeMillis() - startTime);
 
-        return isRegistered;
+        return registered;
     }
 
     @SuppressWarnings("StatementWithEmptyBody")
@@ -262,12 +248,12 @@ public abstract class AbstractMaster implements Master {
         if (!failed.contains(request)) return true;
 
         int attempts = 0;
-        boolean isUnregistered;
-        while (!(isUnregistered = failed.remove(request)) && ++attempts <= MAX_ATTEMPTS) ;
+        boolean unregistered;
+        while (!(unregistered = failed.remove(request)) && ++attempts <= MAX_ATTEMPTS) ;
 
         LOG.trace("unregister: {}ms", System.currentTimeMillis() - startTime);
 
-        return isUnregistered;
+        return unregistered;
     }
 
     /**
@@ -276,7 +262,9 @@ public abstract class AbstractMaster implements Master {
      * @return projects
      */
     protected Collection<Project> getProjectsDefault() {
-        return new ArrayList<>(projects.values());
+        return projects.values().stream()
+                .sorted(Comparator.comparing(project -> project.id))
+                .collect(Collectors.toList());
     }
 
     /**
@@ -414,8 +402,8 @@ public abstract class AbstractMaster implements Master {
             try {
                 final Request oldRequest = service.take().get();
 
-                boolean isUnregistered = unregister(oldRequest);
-                if (!isUnregistered)
+                boolean unregistered = unregister(oldRequest);
+                if (!unregistered)
                     LOG.warn("{} isn't unregistered from failed requests set.", oldRequest);
 
                 if (oldRequest.code == Request.Code.REJECTED) {
@@ -426,26 +414,26 @@ public abstract class AbstractMaster implements Master {
                     long delay = newRequest.repeatDate - System.currentTimeMillis();
 
                     Request logRequest;
-                    boolean isRegistered;
+                    boolean registered;
 
                     if (isYoungestVersion) {
                         final Runnable task = new ScheduledTask(newRequest);
                         closeLock.readLock().lock();
                         try {
                             if (!closed) {
+                                registered = register(logRequest = newRequest);
                                 scheduler.schedule(task, delay, TimeUnit.MILLISECONDS);
-                                isRegistered = register(logRequest = newRequest);
                             } else {
-                                isRegistered = register(logRequest = oldRequest);
+                                registered = register(logRequest = oldRequest);
                             }
                         } finally {
                             closeLock.readLock().unlock();
                         }
                     } else {
-                        isRegistered = register(logRequest = oldRequest);
+                        registered = register(logRequest = oldRequest);
                     }
 
-                    if (!isRegistered)
+                    if (!registered)
                         LOG.warn("{} isn't registered on failed requests set.", logRequest);
                 }
             } catch (InterruptedException e) {

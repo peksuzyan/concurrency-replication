@@ -17,7 +17,7 @@ public class Request {
     public final long repeatDate;
 
     public enum Code {
-        UNDEFINED,
+        UNDELIVERED,
         DELIVERED,
         REJECTED
     }
@@ -25,7 +25,7 @@ public class Request {
     private static final int FIRST_ATTEMPT = 1;
 
     public Request(Slave slave, Project project) {
-        this(slave, project, FIRST_ATTEMPT, Code.UNDEFINED);
+        this(slave, project, FIRST_ATTEMPT, Code.UNDELIVERED);
     }
 
     private Request(Slave slave, Project project, int attempt, Code code) {
@@ -39,7 +39,7 @@ public class Request {
     }
 
     public Request incAttemptAndReturn() {
-        return new Request(slave, project, attempt + 1, Code.UNDEFINED);
+        return new Request(slave, project, attempt + 1, Code.UNDELIVERED);
     }
 
     public Request setCodeAndReturn(Code code) {
