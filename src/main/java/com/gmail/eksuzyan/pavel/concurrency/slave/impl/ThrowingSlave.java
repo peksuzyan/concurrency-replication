@@ -11,17 +11,20 @@ import java.util.Collection;
  */
 public class ThrowingSlave extends AbstractSlave {
 
+    private final double limit;
+
     public ThrowingSlave() {
-        this(null);
+        this(null, 0.2);
     }
 
-    public ThrowingSlave(String name) {
+    public ThrowingSlave(String name, double limit) {
         super(name);
+        this.limit = limit;
     }
 
     @Override
     public void postProject(String projectId, long version, String data) throws Exception {
-        if (Math.random() > 0.2) throw new Exception();
+        if (Math.random() > limit) throw new Exception();
         postProjectDefault(projectId, version, data);
     }
 

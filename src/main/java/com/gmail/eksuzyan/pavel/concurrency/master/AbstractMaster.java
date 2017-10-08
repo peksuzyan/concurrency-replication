@@ -182,7 +182,8 @@ public abstract class AbstractMaster implements Master {
             isAdded = projects.replace(projectId, oldProject, newProject = oldProject.setDataAndIncVersion(data));
 
         if (!isAdded) {
-            LOG.warn("{} isn't inserted into master store.", newProject);
+            LOG.warn("Project{id='{}', data='{}'} is being tried to insert into master's store one more time.", projectId, data);
+            prepareProject(projectId, data);
             return;
         }
 
@@ -196,7 +197,7 @@ public abstract class AbstractMaster implements Master {
     private void prepareProjectToSlaves(final Project project) {
         long startTime = System.currentTimeMillis();
 
-        Set<Request> requests = slaves.values().stream()
+        Collection<Request> requests = slaves.values().stream()
                 .map(slave -> new Request(slave, project))
                 .collect(Collectors.toSet());
 
@@ -214,8 +215,7 @@ public abstract class AbstractMaster implements Master {
                 if (!closed) {
                     listener.execute(listenerTask);
                     dispatcherService.submit(sendingTask);
-                } else
-                    LOG.debug("{} can't be delivered in listener and dispatcher because master is shutdown.", request);
+                }
             } finally {
                 closeLock.readLock().unlock();
             }
@@ -229,7 +229,7 @@ public abstract class AbstractMaster implements Master {
     }
 
     @SuppressWarnings("StatementWithEmptyBody")
-    private boolean register(Set<Request> requests) {
+    private boolean register(Collection<Request> requests) {
         long startTime = System.currentTimeMillis();
 
         int attempts = 0;
@@ -264,6 +264,18 @@ public abstract class AbstractMaster implements Master {
     protected Collection<Project> getProjectsDefault() {
         return projects.values().stream()
                 .sorted(Comparator.comparing(project -> project.id))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Returns slaves which are related to this master instance.
+     *
+     * @return a set of slaves
+     */
+    @Override
+    public Collection<Slave> getSlaves() {
+        return slaves.values().stream()
+                .sorted(Comparator.comparing(Slave::getName))
                 .collect(Collectors.toList());
     }
 
@@ -350,16 +362,6 @@ public abstract class AbstractMaster implements Master {
     }
 
     /**
-     * Returns slaves which are related to this master instance.
-     *
-     * @return a set of slaves
-     */
-    @Override
-    public Collection<Slave> getSlaves() {
-        return new ArrayList<>(slaves.values());
-    }
-
-    /**
      * Prepares a project to be spread among slaves.
      */
     private class PreparationTask implements Runnable {
@@ -391,7 +393,8 @@ public abstract class AbstractMaster implements Master {
 
         private boolean hasYoungestProjectVersion(Request oldRequest) {
             return failed.stream()
-                    .filter(r -> r.slave == oldRequest.slave && Objects.equals(r.project.id, oldRequest.project.id))
+                    .filter(r -> r.slave == oldRequest.slave)
+                    .filter(r -> Objects.equals(r.project.id, oldRequest.project.id))
                     .allMatch(r -> r.project.version < oldRequest.project.version);
         }
 
@@ -409,29 +412,29 @@ public abstract class AbstractMaster implements Master {
                 if (oldRequest.code == Request.Code.REJECTED) {
                     final Request newRequest = oldRequest.incAttemptAndReturn();
 
-                    boolean isYoungestVersion = hasYoungestProjectVersion(oldRequest);
+                    boolean youngestVersion = hasYoungestProjectVersion(oldRequest);
 
                     long delay = newRequest.repeatDate - System.currentTimeMillis();
 
                     Request logRequest;
                     boolean registered;
 
-                    if (isYoungestVersion) {
+                    if (youngestVersion) {
                         final Runnable task = new ScheduledTask(newRequest);
                         closeLock.readLock().lock();
                         try {
                             if (!closed) {
                                 registered = register(logRequest = newRequest);
                                 scheduler.schedule(task, delay, TimeUnit.MILLISECONDS);
-                            } else {
-                                registered = register(logRequest = oldRequest);
-                            }
+                            } else
+                                registered = register(
+                                        logRequest = oldRequest.setCodeAndReturn(Request.Code.UNDELIVERED));
                         } finally {
                             closeLock.readLock().unlock();
                         }
-                    } else {
-                        registered = register(logRequest = oldRequest);
-                    }
+                    } else
+                        registered = register(
+                                logRequest = oldRequest.setCodeAndReturn(Request.Code.OUTDATED));
 
                     if (!registered)
                         LOG.warn("{} isn't registered on failed requests set.", logRequest);
@@ -462,8 +465,6 @@ public abstract class AbstractMaster implements Master {
                 if (!closed) {
                     listener.execute(new ListenerTask(repeaterService));
                     repeaterService.submit(new SendingTask(request));
-                } else {
-                    LOG.debug("{} can't be delivered because listener is shutdown.", request);
                 }
             } finally {
                 closeLock.readLock().unlock();

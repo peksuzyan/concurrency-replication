@@ -2,7 +2,9 @@ package com.gmail.eksuzyan.pavel.concurrency;
 
 import com.gmail.eksuzyan.pavel.concurrency.entities.Project;
 import com.gmail.eksuzyan.pavel.concurrency.entities.Request;
+import com.gmail.eksuzyan.pavel.concurrency.master.Master;
 import com.gmail.eksuzyan.pavel.concurrency.master.impl.HealthyMaster;
+import com.gmail.eksuzyan.pavel.concurrency.slave.Slave;
 import com.gmail.eksuzyan.pavel.concurrency.slave.impl.HealthySlave;
 import com.gmail.eksuzyan.pavel.concurrency.slave.impl.PendingSlave;
 import com.gmail.eksuzyan.pavel.concurrency.slave.impl.ThrowingSlave;
@@ -14,6 +16,8 @@ import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.Collection;
 import java.util.Objects;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
 /**
@@ -26,35 +30,63 @@ public class App {
 
     private final static Duration DELAY = Duration.of(5, ChronoUnit.SECONDS);
 
-    public static void main(String[] args) throws InterruptedException {
+    private static Master master;
+
+    private static ExecutorService generator = Executors.newFixedThreadPool(5);
+
+    public static void main(String[] args) throws InterruptedException, IOException {
 
         Thread.currentThread().setName("mainThread");
 
-        HealthyMaster master = new HealthyMaster(
+        master = new HealthyMaster(
                 new HealthySlave("healthy-1"),
+                new ThrowingSlave("throwiny-1", 0.3),
                 new HealthySlave("healthy-3"),
+                new ThrowingSlave("throwiny-3", 0.9),
                 new PendingSlave("sleepy"),
                 new HealthySlave("healthy-2"),
-                new ThrowingSlave("throwiny")
+                new ThrowingSlave("throwiny-2", 0.2)
         );
 
-        master.postProject("England", "London");
-        master.postProject("Germany", "Berlin");
-        master.postProject("Russia", "Moscow");
-        master.postProject("USA", "Washington");
-        master.postProject("Italy", "Rome");
-        master.postProject("Russia", "Saint-Petersburg");
-        master.postProject("England", "Manchester");
-        master.postProject("Scotland", "Glasgow");
-        master.postProject("Russia", "Krasnodar");
-        master.postProject("Italy", "Milan");
-        master.postProject("France", "Paris");
-        master.postProject("Finland", "Helsinki");
-        master.postProject("Spain", "Madrid");
-        master.postProject("France", "Marcel");
-        master.postProject("Italy", "Verona");
-        master.postProject("Russia", "Vladivostok");
-        master.postProject("Spain", "Barcelona");
+        deliver("England", "London");
+        deliver("Germany", "Berlin");
+        deliver("Russia", "Moscow");
+        deliver("USA", "Washington");
+        deliver("USA", "San-Francisko");
+        deliver("Germany", "Essen");
+        deliver("Russia", "Ekaterinburg");
+        deliver("Italy", "Rome");
+        deliver("Spain", "Valencia");
+        deliver("Italy", "Turin");
+        deliver("USA", "Las-Vegas");
+        deliver("Russia", "Saint-Petersburg");
+        deliver("England", "Manchester");
+        deliver("Germany", "Koln");
+        deliver("Spain", "Toledo");
+        deliver("Scotland", "Glasgow");
+        deliver("Russia", "Krasnodar");
+        deliver("Russia", "Sochi");
+        deliver("Italy", "Milan");
+        deliver("Germany", "Bonn");
+        deliver("USA", "Los-Angels");
+        deliver("France", "Paris");
+        deliver("Spain", "Santader");
+        deliver("Russia", "Murmansk");
+        deliver("Russia", "Petrozavodsk");
+        deliver("Italy", "Rimini");
+        deliver("USA", "Chicago");
+        deliver("Germany", "Dresden");
+        deliver("USA", "New-York");
+        deliver("Finland", "Helsinki");
+        deliver("Russia", "Omsk");
+        deliver("Spain", "Madrid");
+        deliver("France", "Marcel");
+        deliver("Italy", "Verona");
+        deliver("Germany", "Dortmund");
+        deliver("Russia", "Novosibirsk");
+        deliver("Russia", "Vladivostok");
+        deliver("USA", "Mayami");
+        deliver("Spain", "Barcelona");
 
         Thread.sleep(DELAY.toMillis());
 
@@ -64,19 +96,22 @@ public class App {
         System.out.println("Projects:  " + System.lineSeparator() + printProjects(master.getProjects()));
         System.out.println("Failed:    " + System.lineSeparator() + printRequests(master.getFailed()));
 
-        master.getSlaves().forEach(slave -> {
+        for (Slave slave : master.getSlaves()) {
             System.out.println("======================= " + slave.getName().toUpperCase() + " =======================");
             System.out.println("Projects:  " + System.lineSeparator() + printProjects(slave.getProjects()));
             System.out.println("Deeply equal: " +
                     String.valueOf(Objects.deepEquals(master.getProjects(), slave.getProjects())).toUpperCase());
-            try {
-                slave.close();
-            } catch (IOException e) {
-                LOG.error("Main thread has exploded unexpectedly due to IOException!");
-            }
-        });
+
+            slave.close();
+        }
 
         System.out.println("======================================================");
+
+        generator.shutdown();
+    }
+
+    private static void deliver(String projectId, String data) {
+        generator.execute(new DeliverTask(projectId, data));
     }
 
     private static String printProjects(Collection<Project> projects) {
@@ -85,5 +120,21 @@ public class App {
 
     private static String printRequests(Collection<Request> projects) {
         return projects.stream().map(Request::toString).collect(Collectors.joining(System.lineSeparator()));
+    }
+
+    private static class DeliverTask implements Runnable {
+        private final String projectId;
+        private final String data;
+
+        DeliverTask(String projectId, String data) {
+            this.projectId = projectId;
+            this.data = data;
+        }
+
+        @Override
+        public void run() {
+            LOG.trace("Project with projectId='{}' and data='{}' is being sent.", projectId, data);
+            master.postProject(projectId, data);
+        }
     }
 }

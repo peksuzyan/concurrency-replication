@@ -19,7 +19,8 @@ public class Request {
     public enum Code {
         UNDELIVERED,
         DELIVERED,
-        REJECTED
+        REJECTED,
+        OUTDATED
     }
 
     private static final int FIRST_ATTEMPT = 1;
