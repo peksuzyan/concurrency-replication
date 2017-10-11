@@ -101,14 +101,15 @@ public abstract class AbstractSlave implements Slave {
         Project oldProject = projects.putIfAbsent(projectId, newProject);
 
         boolean isAdded = true;
-        if (Objects.nonNull(oldProject)
+        if (oldProject != null
                 && !Objects.equals(oldProject, newProject)
                 && oldProject.version < newProject.version) {
             isAdded = projects.replace(projectId, oldProject, newProject);
         }
 
         if (!isAdded) {
-            LOG.warn("{} isn't inserted into slave store.", newProject);
+            LOG.warn("Project{id='{}', version='{}', data='{}'} is being tried to insert into slave's store one more time.", projectId, version, data);
+            postProjectDefault(projectId, version, data);
             return;
         }
 

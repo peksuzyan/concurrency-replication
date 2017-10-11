@@ -1,5 +1,6 @@
 package com.gmail.eksuzyan.pavel.concurrency.master;
 
+import com.gmail.eksuzyan.pavel.concurrency.conf.MasterProperties;
 import com.gmail.eksuzyan.pavel.concurrency.entities.Project;
 import com.gmail.eksuzyan.pavel.concurrency.entities.Request;
 import com.gmail.eksuzyan.pavel.concurrency.slave.Slave;
@@ -57,36 +58,30 @@ public abstract class AbstractMaster implements Master {
 
     private static final int MAX_ATTEMPTS = 3;
 
-    private static final int DISPATCHER_THREAD_POOL_SIZE = 16;
-    private static final int REPEATER_THREAD_POOL_SIZE = 16;
-    private static final int PREPARATOR_THREAD_POOL_SIZE = 16;
-    private static final int LISTENER_THREAD_POOL_SIZE = 8;
-    private static final int SCHEDULER_THREAD_POOL_SIZE = 8;
-
     private final ExecutorService dispatcher =
             Executors.newFixedThreadPool(
-                    DISPATCHER_THREAD_POOL_SIZE,
-                    new NamedThreadFactory("dispatcher"));
+                    MasterProperties.getDispatcherThreadPoolSize(),
+                    new NamedThreadFactory(MasterProperties.getDispatcherThreadPoolName()));
 
     private final ExecutorService repeater =
             Executors.newFixedThreadPool(
-                    REPEATER_THREAD_POOL_SIZE,
-                    new NamedThreadFactory("repeater"));
+                    MasterProperties.getRepeaterThreadPoolSize(),
+                    new NamedThreadFactory(MasterProperties.getRepeaterThreadPoolName()));
 
     private final ExecutorService preparator =
             Executors.newFixedThreadPool(
-                    PREPARATOR_THREAD_POOL_SIZE,
-                    new NamedThreadFactory("preparator"));
+                    MasterProperties.getPreparatorThreadPoolSize(),
+                    new NamedThreadFactory(MasterProperties.getPreparatorThreadPoolName()));
 
     private final ExecutorService listener =
             Executors.newFixedThreadPool(
-                    LISTENER_THREAD_POOL_SIZE,
-                    new NamedThreadFactory("listener"));
+                    MasterProperties.getListenerThreadPoolSize(),
+                    new NamedThreadFactory(MasterProperties.getListenerThreadPoolName()));
 
     private final ScheduledExecutorService scheduler =
             Executors.newScheduledThreadPool(
-                    SCHEDULER_THREAD_POOL_SIZE,
-                    new NamedThreadFactory("scheduler"));
+                    MasterProperties.getSchedulerThreadPoolSize(),
+                    new NamedThreadFactory(MasterProperties.getSchedulerThreadPoolName()));
 
     private final CompletionService<Request> dispatcherService =
             new ExecutorCompletionService<>(dispatcher);
@@ -159,9 +154,11 @@ public abstract class AbstractMaster implements Master {
 
         closeLock.readLock().lock();
         try {
-            if (!closed)
+            if (!closed) {
                 preparator.execute(new PreparationTask(projectId, data));
-            else
+
+                LOG.debug("Project{id='{}', data='{}'} is posted.", projectId, data);
+            } else
                 throw new IllegalStateException(getName() + " closed already.");
         } finally {
             closeLock.readLock().unlock();
@@ -186,6 +183,8 @@ public abstract class AbstractMaster implements Master {
             prepareProject(projectId, data);
             return;
         }
+
+        LOG.debug("Project{id='{}', data='{}'} is stored.", projectId, data);
 
         if (slaves.isEmpty()) return;
 
@@ -215,6 +214,8 @@ public abstract class AbstractMaster implements Master {
                 if (!closed) {
                     listener.execute(listenerTask);
                     dispatcherService.submit(sendingTask);
+
+                    LOG.debug("{} is prepared to deliver.", request);
                 }
             } finally {
                 closeLock.readLock().unlock();
@@ -327,11 +328,11 @@ public abstract class AbstractMaster implements Master {
         }
 
         try {
-            shutdownAndAwait(preparator, "preparator");
-            shutdownAndAwait(dispatcher, "dispatcher");
-            shutdownAndAwait(repeater, "repeater");
-            shutdownAndAwait(scheduler, "scheduler");
-            shutdownAndAwait(listener, "listener");
+            shutdownAndAwait(preparator, MasterProperties.getPreparatorThreadPoolName());
+            shutdownAndAwait(dispatcher, MasterProperties.getDispatcherThreadPoolName());
+            shutdownAndAwait(repeater, MasterProperties.getRepeaterThreadPoolName());
+            shutdownAndAwait(scheduler, MasterProperties.getSchedulerThreadPoolName());
+            shutdownAndAwait(listener, MasterProperties.getListenerThreadPoolName());
         } catch (InterruptedException e) {
             LOG.error("Main thread has been interrupted unexpectedly!", e);
         }
@@ -426,6 +427,8 @@ public abstract class AbstractMaster implements Master {
                             if (!closed) {
                                 registered = register(logRequest = newRequest);
                                 scheduler.schedule(task, delay, TimeUnit.MILLISECONDS);
+
+                                LOG.debug("{} is scheduled to be sent again.", logRequest);
                             } else
                                 registered = register(
                                         logRequest = oldRequest.setCodeAndReturn(Request.Code.UNDELIVERED));
