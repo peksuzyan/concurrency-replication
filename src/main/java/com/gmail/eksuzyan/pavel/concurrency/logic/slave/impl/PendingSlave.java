@@ -1,7 +1,7 @@
-package com.gmail.eksuzyan.pavel.concurrency.slave.impl;
+package com.gmail.eksuzyan.pavel.concurrency.logic.slave.impl;
 
-import com.gmail.eksuzyan.pavel.concurrency.entities.Project;
-import com.gmail.eksuzyan.pavel.concurrency.slave.AbstractSlave;
+import com.gmail.eksuzyan.pavel.concurrency.logic.entities.Project;
+import com.gmail.eksuzyan.pavel.concurrency.logic.slave.AbstractSlave;
 
 import java.util.Collection;
 

@@ -1,9 +1,10 @@
 package com.gmail.eksuzyan.pavel.concurrency.performance;
 
-import com.gmail.eksuzyan.pavel.concurrency.master.Master;
-import com.gmail.eksuzyan.pavel.concurrency.master.impl.HealthyMaster;
-import com.gmail.eksuzyan.pavel.concurrency.slave.Slave;
-import com.gmail.eksuzyan.pavel.concurrency.slave.impl.HealthySlave;
+import com.gmail.eksuzyan.pavel.concurrency.util.config.MasterProperties;
+import com.gmail.eksuzyan.pavel.concurrency.logic.master.Master;
+import com.gmail.eksuzyan.pavel.concurrency.logic.master.impl.HealthyMaster;
+import com.gmail.eksuzyan.pavel.concurrency.logic.slave.Slave;
+import com.gmail.eksuzyan.pavel.concurrency.logic.slave.impl.HealthySlave;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
@@ -24,6 +25,7 @@ public class SlavePerformanceTest {
     public void tearDown() throws IOException {
         try {
             if (master != null) master.close();
+            MasterProperties.reset();
         } catch (IllegalStateException ignore) {
             /* NOP */
         }
@@ -206,7 +208,7 @@ public class SlavePerformanceTest {
 
         latch.await();
 
-        Thread.sleep(120_000);
+        Thread.sleep(15_000);
 
         Assert.assertEquals(projectsCount, slaves[0].getProjects().size());
     }
@@ -238,10 +240,6 @@ public class SlavePerformanceTest {
 
         int expected = 10;
         boolean result = master.getFailed().size() < expected;
-
-        System.out.println(
-                "[RESULT] Set size: " + master.getFailed().size() + ". " +
-                        "Expected value: < " + expected + ".");
 
         Assert.assertTrue(result);
     }

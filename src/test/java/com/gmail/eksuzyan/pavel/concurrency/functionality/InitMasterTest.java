@@ -1,9 +1,9 @@
 package com.gmail.eksuzyan.pavel.concurrency.functionality;
 
-import com.gmail.eksuzyan.pavel.concurrency.master.Master;
-import com.gmail.eksuzyan.pavel.concurrency.master.impl.HealthyMaster;
-import com.gmail.eksuzyan.pavel.concurrency.slave.Slave;
-import com.gmail.eksuzyan.pavel.concurrency.slave.impl.HealthySlave;
+import com.gmail.eksuzyan.pavel.concurrency.logic.master.Master;
+import com.gmail.eksuzyan.pavel.concurrency.logic.master.impl.HealthyMaster;
+import com.gmail.eksuzyan.pavel.concurrency.logic.slave.Slave;
+import com.gmail.eksuzyan.pavel.concurrency.logic.slave.impl.HealthySlave;
 import org.junit.Assert;
 import org.junit.Test;
 

@@ -1,13 +1,13 @@
 package com.gmail.eksuzyan.pavel.concurrency;
 
-import com.gmail.eksuzyan.pavel.concurrency.entities.Project;
-import com.gmail.eksuzyan.pavel.concurrency.entities.Request;
-import com.gmail.eksuzyan.pavel.concurrency.master.Master;
-import com.gmail.eksuzyan.pavel.concurrency.master.impl.HealthyMaster;
-import com.gmail.eksuzyan.pavel.concurrency.slave.Slave;
-import com.gmail.eksuzyan.pavel.concurrency.slave.impl.HealthySlave;
-import com.gmail.eksuzyan.pavel.concurrency.slave.impl.PendingSlave;
-import com.gmail.eksuzyan.pavel.concurrency.slave.impl.ThrowingSlave;
+import com.gmail.eksuzyan.pavel.concurrency.logic.entities.Project;
+import com.gmail.eksuzyan.pavel.concurrency.logic.entities.Request;
+import com.gmail.eksuzyan.pavel.concurrency.logic.master.Master;
+import com.gmail.eksuzyan.pavel.concurrency.logic.master.impl.HealthyMaster;
+import com.gmail.eksuzyan.pavel.concurrency.logic.slave.Slave;
+import com.gmail.eksuzyan.pavel.concurrency.logic.slave.impl.HealthySlave;
+import com.gmail.eksuzyan.pavel.concurrency.logic.slave.impl.PendingSlave;
+import com.gmail.eksuzyan.pavel.concurrency.logic.slave.impl.ThrowingSlave;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -15,6 +15,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.Objects;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -28,7 +29,7 @@ public class App {
 
     private final static Logger LOG = LoggerFactory.getLogger(App.class);
 
-    private final static Duration DELAY = Duration.of(5, ChronoUnit.SECONDS);
+    private final static Duration DELAY = Duration.of(60, ChronoUnit.SECONDS);
 
     private static Master master;
 
@@ -92,20 +93,29 @@ public class App {
 
         master.close();
 
-        System.out.println("======================= " + master.getName().toUpperCase() + " =======================");
-        System.out.println("Projects:  " + System.lineSeparator() + printProjects(master.getProjects()));
-        System.out.println("Failed:    " + System.lineSeparator() + printRequests(master.getFailed()));
+        Collection<Request> masterRequests = master.getFailed();
+        Collection<Project> masterProjects = master.getProjects().stream()
+                .sorted(Comparator.comparing(project -> project.id))
+                .collect(Collectors.toList());
+
+        LOG.info("======================= {} =======================", master.getName().toUpperCase());
+        LOG.info("Projects:  {}{}", System.lineSeparator(), printProjects(masterProjects));
+        LOG.info("Failed:    {}{}", System.lineSeparator(), printRequests(masterRequests));
 
         for (Slave slave : master.getSlaves()) {
-            System.out.println("======================= " + slave.getName().toUpperCase() + " =======================");
-            System.out.println("Projects:  " + System.lineSeparator() + printProjects(slave.getProjects()));
-            System.out.println("Deeply equal: " +
-                    String.valueOf(Objects.deepEquals(master.getProjects(), slave.getProjects())).toUpperCase());
+            Collection<Project> slaveProjects = slave.getProjects().stream()
+                    .sorted(Comparator.comparing(project -> project.id))
+                    .collect(Collectors.toList());
+
+            LOG.info("======================= {} =======================", slave.getName().toUpperCase());
+            LOG.info("Projects:  {}{}", System.lineSeparator(), printProjects(slaveProjects));
+            LOG.info("Deeply equal: {}",
+                    String.valueOf(Objects.deepEquals(masterProjects, slaveProjects)).toUpperCase());
 
             slave.close();
         }
 
-        System.out.println("======================================================");
+        LOG.info("======================================================");
 
         generator.shutdown();
     }
@@ -115,11 +125,16 @@ public class App {
     }
 
     private static String printProjects(Collection<Project> projects) {
-        return projects.stream().map(Project::toString).collect(Collectors.joining(System.lineSeparator()));
+        return projects.stream()
+                .sorted(Comparator.comparing(project -> project.id))
+                .map(Project::toString)
+                .collect(Collectors.joining(System.lineSeparator()));
     }
 
     private static String printRequests(Collection<Request> projects) {
-        return projects.stream().map(Request::toString).collect(Collectors.joining(System.lineSeparator()));
+        return projects.stream()
+                .map(Request::toString)
+                .collect(Collectors.joining(System.lineSeparator()));
     }
 
     private static class DeliverTask implements Runnable {

@@ -4,3 +4,6 @@
 
 # build
 **/target/
+
+# run
+**/*.log

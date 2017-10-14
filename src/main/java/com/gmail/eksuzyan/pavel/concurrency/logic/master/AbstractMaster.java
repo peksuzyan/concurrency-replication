@@ -1,9 +1,10 @@
-package com.gmail.eksuzyan.pavel.concurrency.master;
+package com.gmail.eksuzyan.pavel.concurrency.logic.master;
 
-import com.gmail.eksuzyan.pavel.concurrency.conf.MasterProperties;
-import com.gmail.eksuzyan.pavel.concurrency.entities.Project;
-import com.gmail.eksuzyan.pavel.concurrency.entities.Request;
-import com.gmail.eksuzyan.pavel.concurrency.slave.Slave;
+import com.gmail.eksuzyan.pavel.concurrency.logic.entities.Project;
+import com.gmail.eksuzyan.pavel.concurrency.logic.entities.Request;
+import com.gmail.eksuzyan.pavel.concurrency.logic.slave.Slave;
+import com.gmail.eksuzyan.pavel.concurrency.util.config.MasterProperties;
+import com.gmail.eksuzyan.pavel.concurrency.util.jmx.Status;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -57,6 +58,8 @@ public abstract class AbstractMaster implements Master {
     private final ReentrantReadWriteLock closeLock = new ReentrantReadWriteLock();
 
     private static final int MAX_ATTEMPTS = 3;
+
+    private final Status status = new Status();
 
     private final ExecutorService dispatcher =
             Executors.newFixedThreadPool(
@@ -137,6 +140,7 @@ public abstract class AbstractMaster implements Master {
         return Collections.unmodifiableMap(
                 Stream.of(slaves)
                         .peek(Objects::requireNonNull)
+                        .sorted(Comparator.comparing(Slave::getName))
                         .collect(Collectors.toMap(Slave::getName, slave -> slave)));
     }
 
@@ -237,6 +241,8 @@ public abstract class AbstractMaster implements Master {
         boolean registered;
         while (!(registered = failed.addAll(requests)) && ++attempts <= MAX_ATTEMPTS) ;
 
+        if (registered) status.addAndGetRegisteredRequests(requests.size());
+
         LOG.trace("register: {}ms", System.currentTimeMillis() - startTime);
 
         return registered;
@@ -252,6 +258,8 @@ public abstract class AbstractMaster implements Master {
         boolean unregistered;
         while (!(unregistered = failed.remove(request)) && ++attempts <= MAX_ATTEMPTS) ;
 
+        if (unregistered) status.decAndGetRegisteredRequests();
+
         LOG.trace("unregister: {}ms", System.currentTimeMillis() - startTime);
 
         return unregistered;
@@ -263,9 +271,7 @@ public abstract class AbstractMaster implements Master {
      * @return projects
      */
     protected Collection<Project> getProjectsDefault() {
-        return projects.values().stream()
-                .sorted(Comparator.comparing(project -> project.id))
-                .collect(Collectors.toList());
+        return new ArrayList<>(projects.values());
     }
 
     /**
@@ -275,9 +281,7 @@ public abstract class AbstractMaster implements Master {
      */
     @Override
     public Collection<Slave> getSlaves() {
-        return slaves.values().stream()
-                .sorted(Comparator.comparing(Slave::getName))
-                .collect(Collectors.toList());
+        return new ArrayList<>(slaves.values());
     }
 
     /**
@@ -337,7 +341,10 @@ public abstract class AbstractMaster implements Master {
             LOG.error("Main thread has been interrupted unexpectedly!", e);
         }
 
-        LOG.info("{} closed.", getName());
+        status.close();
+
+        LOG.info("{} closed. The rest of registered requests: {}. Total replicated projects: {}.",
+                getName(), status.getRegisteredRequests(), status.getReplicatedProjects());
 
         LOG.trace("shutdownDefault: {}ms", System.currentTimeMillis() - startTime);
     }
@@ -441,6 +448,8 @@ public abstract class AbstractMaster implements Master {
 
                     if (!registered)
                         LOG.warn("{} isn't registered on failed requests set.", logRequest);
+                } else {
+                    status.incAndGetReplicatedProjects();
                 }
             } catch (InterruptedException e) {
                 LOG.debug("Listener task is interrupted correctly.");

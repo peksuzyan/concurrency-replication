@@ -1,6 +1,6 @@
-package com.gmail.eksuzyan.pavel.concurrency.entities;
+package com.gmail.eksuzyan.pavel.concurrency.logic.entities;
 
-import com.gmail.eksuzyan.pavel.concurrency.slave.Slave;
+import com.gmail.eksuzyan.pavel.concurrency.logic.slave.Slave;
 
 import java.util.Objects;
 

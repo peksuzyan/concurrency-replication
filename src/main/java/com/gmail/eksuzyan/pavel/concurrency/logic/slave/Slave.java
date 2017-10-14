@@ -1,6 +1,6 @@
-package com.gmail.eksuzyan.pavel.concurrency.slave;
+package com.gmail.eksuzyan.pavel.concurrency.logic.slave;
 
-import com.gmail.eksuzyan.pavel.concurrency.entities.Project;
+import com.gmail.eksuzyan.pavel.concurrency.logic.entities.Project;
 
 import java.io.Closeable;
 import java.util.Collection;

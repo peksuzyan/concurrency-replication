@@ -1,7 +1,7 @@
 package com.gmail.eksuzyan.pavel.concurrency.functionality;
 
-import com.gmail.eksuzyan.pavel.concurrency.slave.Slave;
-import com.gmail.eksuzyan.pavel.concurrency.slave.impl.HealthySlave;
+import com.gmail.eksuzyan.pavel.concurrency.logic.slave.Slave;
+import com.gmail.eksuzyan.pavel.concurrency.logic.slave.impl.HealthySlave;
 import org.junit.Assert;
 import org.junit.Test;
 

@@ -1,12 +1,13 @@
 package com.gmail.eksuzyan.pavel.concurrency.functionality;
 
-import com.gmail.eksuzyan.pavel.concurrency.entities.Project;
-import com.gmail.eksuzyan.pavel.concurrency.entities.Request;
-import com.gmail.eksuzyan.pavel.concurrency.master.Master;
-import com.gmail.eksuzyan.pavel.concurrency.master.impl.HealthyMaster;
-import com.gmail.eksuzyan.pavel.concurrency.slave.Slave;
-import com.gmail.eksuzyan.pavel.concurrency.slave.impl.AlwaysThrowingSlave;
-import com.gmail.eksuzyan.pavel.concurrency.slave.impl.HealthySlave;
+import com.gmail.eksuzyan.pavel.concurrency.util.config.MasterProperties;
+import com.gmail.eksuzyan.pavel.concurrency.logic.entities.Project;
+import com.gmail.eksuzyan.pavel.concurrency.logic.entities.Request;
+import com.gmail.eksuzyan.pavel.concurrency.logic.master.Master;
+import com.gmail.eksuzyan.pavel.concurrency.logic.master.impl.HealthyMaster;
+import com.gmail.eksuzyan.pavel.concurrency.logic.slave.Slave;
+import com.gmail.eksuzyan.pavel.concurrency.logic.slave.impl.AlwaysThrowingSlave;
+import com.gmail.eksuzyan.pavel.concurrency.logic.slave.impl.HealthySlave;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
@@ -29,6 +30,7 @@ public class GeneralMasterTest {
     public void tearDown() throws IOException {
         try {
             if (master != null) master.close();
+            MasterProperties.reset();
         } catch (IllegalStateException ignore) {
             /* NOP */
         }

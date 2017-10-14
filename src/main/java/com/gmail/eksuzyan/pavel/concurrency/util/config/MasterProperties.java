@@ -1,4 +1,4 @@
-package com.gmail.eksuzyan.pavel.concurrency.conf;
+package com.gmail.eksuzyan.pavel.concurrency.util.config;
 
 import java.util.Properties;
 

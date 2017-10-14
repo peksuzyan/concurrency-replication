@@ -1,7 +1,7 @@
 package com.gmail.eksuzyan.pavel.concurrency.performance;
 
-import com.gmail.eksuzyan.pavel.concurrency.entities.Project;
-import com.gmail.eksuzyan.pavel.concurrency.entities.Request;
+import com.gmail.eksuzyan.pavel.concurrency.logic.entities.Project;
+import com.gmail.eksuzyan.pavel.concurrency.logic.entities.Request;
 import org.junit.Ignore;
 import org.junit.Test;
 

@@ -1,4 +1,4 @@
-package com.gmail.eksuzyan.pavel.concurrency.entities;
+package com.gmail.eksuzyan.pavel.concurrency.logic.entities;
 
 import java.util.Objects;
 

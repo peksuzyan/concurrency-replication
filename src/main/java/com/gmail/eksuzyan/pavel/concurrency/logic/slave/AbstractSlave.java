@@ -1,9 +1,10 @@
-package com.gmail.eksuzyan.pavel.concurrency.slave;
+package com.gmail.eksuzyan.pavel.concurrency.logic.slave;
 
-import com.gmail.eksuzyan.pavel.concurrency.entities.Project;
+import com.gmail.eksuzyan.pavel.concurrency.logic.entities.Project;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.Objects;
@@ -122,9 +123,7 @@ public abstract class AbstractSlave implements Slave {
      * @return a set of projects
      */
     protected final Collection<Project> getProjectsDefault() {
-        return projects.values().stream()
-                .sorted(Comparator.comparing(project -> project.id))
-                .collect(Collectors.toList());
+        return new ArrayList<>(projects.values());
     }
 
     /**

@@ -1,11 +1,12 @@
 package com.gmail.eksuzyan.pavel.concurrency.performance;
 
-import com.gmail.eksuzyan.pavel.concurrency.master.Master;
-import com.gmail.eksuzyan.pavel.concurrency.master.impl.HealthyMaster;
-import com.gmail.eksuzyan.pavel.concurrency.slave.Slave;
-import com.gmail.eksuzyan.pavel.concurrency.slave.impl.HealthySlave;
-import com.gmail.eksuzyan.pavel.concurrency.slave.impl.PendingSlave;
-import com.gmail.eksuzyan.pavel.concurrency.slave.impl.ThrowingSlave;
+import com.gmail.eksuzyan.pavel.concurrency.util.config.MasterProperties;
+import com.gmail.eksuzyan.pavel.concurrency.logic.master.Master;
+import com.gmail.eksuzyan.pavel.concurrency.logic.master.impl.HealthyMaster;
+import com.gmail.eksuzyan.pavel.concurrency.logic.slave.Slave;
+import com.gmail.eksuzyan.pavel.concurrency.logic.slave.impl.HealthySlave;
+import com.gmail.eksuzyan.pavel.concurrency.logic.slave.impl.PendingSlave;
+import com.gmail.eksuzyan.pavel.concurrency.logic.slave.impl.ThrowingSlave;
 import org.junit.Ignore;
 import org.junit.Test;
 
@@ -27,9 +28,9 @@ public class MessageSendingToEntryQueueTest {
         Master master = new HealthyMaster(
                 new HealthySlave());
 
-        final int threadsCount = 1_000_000;
+        final int projects = 1_000_000;
 
-        for (int i = 0; i < threadsCount; i++) {
+        for (int i = 0; i < projects; i++) {
             master.postProject("Michael", "Jackson_" + String.valueOf(i));
         }
     }
@@ -40,9 +41,9 @@ public class MessageSendingToEntryQueueTest {
         Master master = new HealthyMaster(
                 new HealthySlave());
 
-        final int threadsCount = 1_000_000;
+        final int projects = 1_000_000;
 
-        for (int i = 0; i < threadsCount; i++) {
+        for (int i = 0; i < projects; i++) {
             master.postProject("Michael_" + String.valueOf(i), "Jackson");
         }
     }
@@ -107,8 +108,14 @@ public class MessageSendingToEntryQueueTest {
         finishLatch.await();
     }
 
-    @Test(timeout = 10_000)
+    @Test(timeout = 100_000)
     public void testManyThreadsWithManyMessagesUniqueProjects() throws InterruptedException {
+
+        MasterProperties.setDispatcherThreadPoolSize(128);
+        MasterProperties.setPreparatorThreadPoolSize(128);
+        MasterProperties.setListenerThreadPoolSize(128);
+        MasterProperties.setSchedulerThreadPoolSize(1);
+        MasterProperties.setRepeaterThreadPoolSize(1);
 
         Master master = new HealthyMaster(
                 new HealthySlave());
@@ -138,14 +145,9 @@ public class MessageSendingToEntryQueueTest {
         }
 
         finishLatch.await();
-//
-//        System.out.println(master.getName() + ": " + master.getProjects().size() + " project(s).");
-//        master.getSlaves().forEach(s ->
-//                System.out.println(s.getName() + ": " + s.getProjects().size() + " project(s)."));
-//        System.out.println(master.getName() + ": " + master.getFailed().size() + " request(s).");
     }
 
-    @Test(timeout = 50_000)
+    @Test(timeout = 10_000)
     public void testManyThreadsWithManyMessagesEqualProjects() throws InterruptedException {
 
         Master master = new HealthyMaster(
