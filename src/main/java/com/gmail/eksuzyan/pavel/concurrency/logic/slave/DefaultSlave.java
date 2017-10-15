@@ -18,7 +18,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  * @author Pavel Eksuzian.
  *         Created: 03.04.2017.
  */
-public class DefaultSlave implements Slave {
+public class DefaultSlave<T> implements Slave<T> {
 
     /**
      * Ordinary logger.
@@ -48,7 +48,7 @@ public class DefaultSlave implements Slave {
     /**
      * Slave store serves to keep published projects.
      */
-    private final ConcurrentMap<String, Project> projects = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, Project<T>> projects = new ConcurrentHashMap<>();
 
     /**
      * Locks access to read and write closing flag.
@@ -86,7 +86,7 @@ public class DefaultSlave implements Slave {
      * @param data      project data
      */
     @Override
-    public void postProject(String projectId, long version, String data) throws Exception {
+    public void postProject(String projectId, long version, T data) throws Exception {
         long startTime = System.currentTimeMillis();
 
         closeLock.readLock().lock();
@@ -96,9 +96,9 @@ public class DefaultSlave implements Slave {
             closeLock.readLock().unlock();
         }
 
-        Project newProject = new Project(projectId, data, version);
+        Project<T> newProject = new Project<>(projectId, data, version);
 
-        Project oldProject = projects.putIfAbsent(projectId, newProject);
+        Project<T> oldProject = projects.putIfAbsent(projectId, newProject);
 
         boolean isAdded = true;
         if (oldProject != null
@@ -122,7 +122,7 @@ public class DefaultSlave implements Slave {
      * @return a set of projects
      */
     @Override
-    public Collection<Project> getProjects() {
+    public Collection<Project<T>> getProjects() {
         return new ArrayList<>(projects.values());
     }
 

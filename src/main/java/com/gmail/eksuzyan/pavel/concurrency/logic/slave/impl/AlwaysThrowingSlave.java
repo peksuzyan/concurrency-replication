@@ -6,7 +6,7 @@ import com.gmail.eksuzyan.pavel.concurrency.logic.slave.DefaultSlave;
  * @author Pavel Eksuzian.
  *         Created: 09.07.2017.
  */
-public class AlwaysThrowingSlave extends DefaultSlave {
+public class AlwaysThrowingSlave extends DefaultSlave<String> {
 
     public AlwaysThrowingSlave() {
         this(null);

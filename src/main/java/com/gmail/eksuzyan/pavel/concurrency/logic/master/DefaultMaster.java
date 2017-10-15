@@ -22,7 +22,7 @@ import java.util.stream.Stream;
  * @author Pavel Eksuzian.
  *         Created: 04.04.2017.
  */
-public class DefaultMaster implements Master {
+public class DefaultMaster<T> implements Master<T> {
 
     /**
      * Ordinary logger.
@@ -49,11 +49,11 @@ public class DefaultMaster implements Master {
      */
     private String name;
 
-    private final Map<String, Slave> slaves;
+    private final Map<String, Slave<T>> slaves;
 
-    private final ConcurrentMap<String, Project> projects = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, Project<T>> projects = new ConcurrentHashMap<>();
 
-    private final Set<Request> failed = ConcurrentHashMap.newKeySet();
+    private final Set<Request<T>> failed = ConcurrentHashMap.newKeySet();
 
     private final ReentrantReadWriteLock closeLock = new ReentrantReadWriteLock();
 
@@ -88,31 +88,36 @@ public class DefaultMaster implements Master {
                     MasterProperties.getSchedulerThreadPoolSize(),
                     new NamedThreadFactory(MasterProperties.getSchedulerThreadPoolName()));
 
-    private final CompletionService<Request> dispatcherService =
+    private final CompletionService<Request<T>> dispatcherService =
             new ExecutorCompletionService<>(dispatcher);
 
-    private final CompletionService<Request> repeaterService =
+    private final CompletionService<Request<T>> repeaterService =
             new ExecutorCompletionService<>(repeater);
 
-    public DefaultMaster(Slave... slaves) {
+    @SafeVarargs
+    public DefaultMaster(Slave<T>... slaves) {
         this(null, Mode.SELECTING, slaves);
     }
 
-    public DefaultMaster(String name, Slave... slaves) {
+    @SafeVarargs
+    public DefaultMaster(String name, Slave<T>... slaves) {
         this(name, Mode.SELECTING, slaves);
     }
 
-    public DefaultMaster(Mode mode, Slave... slaves) {
+    @SafeVarargs
+    public DefaultMaster(Mode mode, Slave<T>... slaves) {
         this(null, mode, slaves);
     }
 
     /**
      * Extended constructor.
-     *  @param name   master name
+     *
+     * @param name   master name
      * @param mode   strategy mode
      * @param slaves slaves
      */
-    public DefaultMaster(String name, Mode mode, Slave... slaves) {
+    @SafeVarargs
+    public DefaultMaster(String name, Mode mode, Slave<T>... slaves) {
         long id = masterCounter.incrementAndGet();
         this.name = (name == null || name.trim().isEmpty())
                 ? String.format("%s-%d", DEFAULT_NAME, id) : name;
@@ -130,7 +135,7 @@ public class DefaultMaster implements Master {
         LOG.info("{} initialized.", getName());
     }
 
-    private static Map<String, Slave> getUnmodifiableSlavesMap(Slave[] slaves) {
+    private Map<String, Slave<T>> getUnmodifiableSlavesMap(Slave<T>[] slaves) {
         if (slaves == null || slaves.length == 0) return Collections.emptyMap();
 
         return Collections.unmodifiableMap(
@@ -146,7 +151,7 @@ public class DefaultMaster implements Master {
      * @param projectId project id
      * @param data      project data
      */
-    public void postProject(String projectId, String data) {
+    public void postProject(String projectId, T data) {
         long startTime = System.currentTimeMillis();
 
         if (projectId == null)
@@ -167,12 +172,12 @@ public class DefaultMaster implements Master {
         LOG.trace("postProjectDefault: {}ms", System.currentTimeMillis() - startTime);
     }
 
-    private void prepareProject(String projectId, String data) {
+    private void prepareProject(String projectId, T data) {
         long startTime = System.currentTimeMillis();
 
-        Project newProject = new Project(projectId, data);
+        Project<T> newProject = new Project<>(projectId, data);
 
-        Project oldProject = projects.putIfAbsent(projectId, newProject);
+        Project<T> oldProject = projects.putIfAbsent(projectId, newProject);
 
         boolean isAdded = true;
         if (oldProject != null)
@@ -193,11 +198,11 @@ public class DefaultMaster implements Master {
         LOG.trace("prepareProject: {}ms", System.currentTimeMillis() - startTime);
     }
 
-    private void prepareProjectToSlaves(final Project project) {
+    private void prepareProjectToSlaves(final Project<T> project) {
         long startTime = System.currentTimeMillis();
 
-        Collection<Request> requests = slaves.values().stream()
-                .map(slave -> new Request(slave, project))
+        Collection<Request<T>> requests = slaves.values().stream()
+                .map(slave -> new Request<>(slave, project))
                 .collect(Collectors.toSet());
 
         boolean registered = register(requests);
@@ -207,7 +212,7 @@ public class DefaultMaster implements Master {
 
         requests.forEach(request -> {
             final Runnable listenerTask = factory.make(dispatcherService);
-            final Callable<Request> sendingTask = new SendingTask(request);
+            final Callable<Request<T>> sendingTask = new SendingTask(request);
 
             closeLock.readLock().lock();
             try {
@@ -225,12 +230,12 @@ public class DefaultMaster implements Master {
         LOG.trace("prepareProjectToSlaves: {}ms", System.currentTimeMillis() - startTime);
     }
 
-    private boolean register(Request request) {
+    private boolean register(Request<T> request) {
         return register(Collections.singleton(request));
     }
 
     @SuppressWarnings("StatementWithEmptyBody")
-    private boolean register(Collection<Request> requests) {
+    private boolean register(Collection<Request<T>> requests) {
         long startTime = System.currentTimeMillis();
 
         int attempts = 0;
@@ -245,7 +250,7 @@ public class DefaultMaster implements Master {
     }
 
     @SuppressWarnings("StatementWithEmptyBody")
-    private boolean unregister(Request request) {
+    private boolean unregister(Request<T> request) {
         long startTime = System.currentTimeMillis();
 
         if (!failed.contains(request)) return true;
@@ -267,7 +272,7 @@ public class DefaultMaster implements Master {
      * @return projects
      */
     @Override
-    public Collection<Project> getProjects() {
+    public Collection<Project<T>> getProjects() {
         return new ArrayList<>(projects.values());
     }
 
@@ -277,7 +282,7 @@ public class DefaultMaster implements Master {
      * @return a set of slaves
      */
     @Override
-    public Collection<Slave> getSlaves() {
+    public Collection<Slave<T>> getSlaves() {
         return new ArrayList<>(slaves.values());
     }
 
@@ -297,7 +302,7 @@ public class DefaultMaster implements Master {
      * @return requests
      */
     @Override
-    public Collection<Request> getFailed() {
+    public Collection<Request<T>> getFailed() {
         return new ArrayList<>(failed);
     }
 
@@ -383,9 +388,9 @@ public class DefaultMaster implements Master {
      */
     private class PreparationTask implements Runnable {
         private final String projectId;
-        private final String data;
+        private final T data;
 
-        PreparationTask(String projectId, String data) {
+        PreparationTask(String projectId, T data) {
             this.projectId = projectId;
             this.data = data;
         }
@@ -402,17 +407,17 @@ public class DefaultMaster implements Master {
 
     @SuppressWarnings("Duplicates")
     private class BroadcastingListenerTask extends ListenerTask {
-        BroadcastingListenerTask(CompletionService<Request> service) {
+        BroadcastingListenerTask(CompletionService<Request<T>> service) {
             super(service);
         }
 
         @Override
-        protected void scheduleRejectedRequest(Request oldRequest) {
-            final Request newRequest = oldRequest.incAttemptAndReturn();
+        protected void scheduleRejectedRequest(Request<T> oldRequest) {
+            final Request<T> newRequest = oldRequest.incAttemptAndReturn();
 
             long delay = newRequest.repeatDate - System.currentTimeMillis();
 
-            Request logRequest;
+            Request<T> logRequest;
             boolean registered;
 
             final Runnable task = new ScheduledTask(newRequest);
@@ -437,11 +442,11 @@ public class DefaultMaster implements Master {
 
     @SuppressWarnings("Duplicates")
     private class SelectingListenerTask extends ListenerTask {
-        SelectingListenerTask(CompletionService<Request> service) {
+        SelectingListenerTask(CompletionService<Request<T>> service) {
             super(service);
         }
 
-        private boolean hasYoungestProjectVersion(Request oldRequest) {
+        private boolean hasYoungestProjectVersion(Request<T> oldRequest) {
             return failed.stream()
                     .filter(r -> r.slave == oldRequest.slave)
                     .filter(r -> Objects.equals(r.project.id, oldRequest.project.id))
@@ -449,14 +454,14 @@ public class DefaultMaster implements Master {
         }
 
         @Override
-        protected void scheduleRejectedRequest(Request oldRequest) {
-            final Request newRequest = oldRequest.incAttemptAndReturn();
+        protected void scheduleRejectedRequest(Request<T> oldRequest) {
+            final Request<T> newRequest = oldRequest.incAttemptAndReturn();
 
             boolean youngestVersion = hasYoungestProjectVersion(oldRequest);
 
             long delay = newRequest.repeatDate - System.currentTimeMillis();
 
-            Request logRequest;
+            Request<T> logRequest;
             boolean registered;
 
             if (youngestVersion) {
@@ -485,9 +490,9 @@ public class DefaultMaster implements Master {
 
     private abstract class ListenerTask implements Runnable {
 
-        private final CompletionService<Request> service;
+        private final CompletionService<Request<T>> service;
 
-        ListenerTask(CompletionService<Request> service) {
+        ListenerTask(CompletionService<Request<T>> service) {
             this.service = service;
         }
 
@@ -496,7 +501,7 @@ public class DefaultMaster implements Master {
             long startTime = System.currentTimeMillis();
 
             try {
-                final Request oldRequest = service.take().get();
+                final Request<T> oldRequest = service.take().get();
 
                 boolean unregistered = unregister(oldRequest);
                 if (!unregistered)
@@ -516,13 +521,13 @@ public class DefaultMaster implements Master {
             LOG.trace("listenerTask: {}ms", System.currentTimeMillis() - startTime);
         }
 
-        protected abstract void scheduleRejectedRequest(Request oldRequest);
+        protected abstract void scheduleRejectedRequest(Request<T> oldRequest);
     }
 
     private class ScheduledTask implements Runnable {
-        private final Request request;
+        private final Request<T> request;
 
-        ScheduledTask(Request request) {
+        ScheduledTask(Request<T> request) {
             this.request = request;
         }
 
@@ -547,15 +552,15 @@ public class DefaultMaster implements Master {
     /**
      * Posts a request into a slave.
      */
-    private class SendingTask implements Callable<Request> {
-        private final Request request;
+    private class SendingTask implements Callable<Request<T>> {
+        private final Request<T> request;
 
-        SendingTask(Request request) {
+        SendingTask(Request<T> request) {
             this.request = request;
         }
 
         @Override
-        public Request call() throws Exception {
+        public Request<T> call() throws Exception {
             long startTime = System.currentTimeMillis();
 
             try {
@@ -585,19 +590,29 @@ public class DefaultMaster implements Master {
         ListenerTaskFactory(Mode mode) {
             switch (mode) {
                 case BROADCASTING:
-                    generator = BroadcastingListenerTask::new;
+                    generator = new ListenerTaskGenerator() {
+                        @Override
+                        ListenerTask make(CompletionService<Request<T>> service) {
+                            return new BroadcastingListenerTask(service);
+                        }
+                    };
                     break;
                 case SELECTING:
-                    generator = SelectingListenerTask::new;
+                    generator = new ListenerTaskGenerator() {
+                        @Override
+                        ListenerTask make(CompletionService<Request<T>> service) {
+                            return new SelectingListenerTask(service);
+                        }
+                    };
                     break;
                 default:
-                    throw new IllegalArgumentException("Master mode = " + mode + " doesn't exist!");
+                    throw new IllegalArgumentException("Repeat delivery mode [" + mode + "] isn't allowed.");
             }
 
             this.mode = mode;
         }
 
-        ListenerTask make(CompletionService<Request> service) {
+        ListenerTask make(CompletionService<Request<T>> service) {
             return generator.make(service);
         }
     }
@@ -605,7 +620,7 @@ public class DefaultMaster implements Master {
     /**
      * Generates listener task having type in according to master delivery mode.
      */
-    private interface ListenerTaskGenerator {
+    private abstract class ListenerTaskGenerator {
 
         /**
          * Makes a new listener task.
@@ -613,8 +628,7 @@ public class DefaultMaster implements Master {
          * @param service service
          * @return listener task
          */
-        ListenerTask make(CompletionService<Request> service);
-
+        abstract ListenerTask make(CompletionService<Request<T>> service);
     }
 
     /**

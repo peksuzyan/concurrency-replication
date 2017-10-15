@@ -8,10 +8,10 @@ import java.util.Objects;
  * @author Pavel Eksuzian.
  *         Created: 12.03.2017.
  */
-public class Request {
+public class Request<T> {
 
-    public final Project project;
-    public final Slave slave;
+    public final Project<T> project;
+    public final Slave<T> slave;
     private final int attempt;
     public final Code code;
     public final long repeatDate;
@@ -25,11 +25,11 @@ public class Request {
 
     private static final int FIRST_ATTEMPT = 1;
 
-    public Request(Slave slave, Project project) {
+    public Request(Slave<T> slave, Project<T> project) {
         this(slave, project, FIRST_ATTEMPT, Code.UNDELIVERED);
     }
 
-    private Request(Slave slave, Project project, int attempt, Code code) {
+    private Request(Slave<T> slave, Project<T> project, int attempt, Code code) {
         this.project = project;
         this.slave = slave;
         this.attempt = attempt;
@@ -39,12 +39,12 @@ public class Request {
                 System.currentTimeMillis());
     }
 
-    public Request incAttemptAndReturn() {
-        return new Request(slave, project, attempt + 1, Code.UNDELIVERED);
+    public Request<T> incAttemptAndReturn() {
+        return new Request<>(slave, project, attempt + 1, Code.UNDELIVERED);
     }
 
-    public Request setCodeAndReturn(Code code) {
-        return new Request(slave, project, attempt, code);
+    public Request<T> setCodeAndReturn(Code code) {
+        return new Request<>(slave, project, attempt, code);
     }
 
     @Override

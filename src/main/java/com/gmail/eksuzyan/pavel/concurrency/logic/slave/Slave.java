@@ -11,7 +11,7 @@ import java.util.Collection;
  * @author Pavel Eksuzian.
  *         Created: 03.04.2017.
  */
-public interface Slave extends Closeable {
+public interface Slave<T> extends Closeable {
 
     /**
      * Posts a new project version into store.
@@ -21,14 +21,14 @@ public interface Slave extends Closeable {
      * @param data      project data
      * @throws Exception exception
      */
-    void postProject(String projectId, long version, String data) throws Exception;
+    void postProject(String projectId, long version, T data) throws Exception;
 
     /**
      * Returns projects which are stored by slave.
      *
      * @return a set of projects
      */
-    Collection<Project> getProjects();
+    Collection<Project<T>> getProjects();
 
     /**
      * Returns slave name.
