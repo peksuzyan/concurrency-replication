@@ -14,11 +14,19 @@ import java.util.Collection;
 public class HealthyMaster extends AbstractMaster {
 
     public HealthyMaster(Slave... slaves) {
-        this(null, slaves);
+        this((String) null, slaves);
+    }
+
+    public HealthyMaster(Mode mode, Slave... slaves) {
+        this(null, mode, slaves);
     }
 
     public HealthyMaster(String name, Slave... slaves) {
-        super(name, slaves);
+        this(name, Mode.SELECTING, slaves);
+    }
+
+    public HealthyMaster(String name, Mode mode, Slave... slaves) {
+        super(name, mode, slaves);
     }
 
     /**

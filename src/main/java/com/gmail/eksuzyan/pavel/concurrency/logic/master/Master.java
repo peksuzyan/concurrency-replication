@@ -58,4 +58,27 @@ public interface Master extends Closeable {
      */
     String getName();
 
+    /**
+     * Returns repeat delivery mode is used by this master instance.
+     *
+     * @return delivery mode
+     */
+    Mode getDeliveryMode();
+
+    /**
+     * Describes repeat delivery modes allowed to deliver projects to slaves.
+     */
+    enum Mode {
+
+        /**
+         * Schedule to deliver even those requests which are older then other ones.
+         */
+        BROADCASTING,
+
+        /**
+         * Schedule to deliver only those requests which are youngest.
+         */
+        SELECTING
+    }
+
 }

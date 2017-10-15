@@ -61,6 +61,8 @@ public abstract class AbstractMaster implements Master {
 
     private final Status status = new Status();
 
+    private final ListenerTaskFactory factory;
+
     private final ExecutorService dispatcher =
             Executors.newFixedThreadPool(
                     MasterProperties.getDispatcherThreadPoolSize(),
@@ -93,35 +95,18 @@ public abstract class AbstractMaster implements Master {
             new ExecutorCompletionService<>(repeater);
 
     /**
-     * Creates thread factory instance which assigns a thread name according to the given name.
-     */
-    private class NamedThreadFactory implements ThreadFactory {
-
-        private final AtomicInteger counter = new AtomicInteger();
-        private final String poolName;
-
-        NamedThreadFactory(String poolName) {
-            this.poolName = poolName;
-        }
-
-        @Override
-        public Thread newThread(Runnable r) {
-            Thread t = new Thread(r);
-            t.setName(String.format("%s-%d", poolName, counter.incrementAndGet()));
-            return t;
-        }
-    }
-
-    /**
-     * Single constructor.
+     * Extended constructor.
      *
      * @param name   master name
+     * @param mode   strategy mode
      * @param slaves slaves
      */
-    protected AbstractMaster(String name, Slave... slaves) {
+    protected AbstractMaster(String name, Mode mode, Slave... slaves) {
         long id = masterCounter.incrementAndGet();
         this.name = (name == null || name.trim().isEmpty())
                 ? String.format("%s-%d", DEFAULT_NAME, id) : name;
+
+        this.factory = new ListenerTaskFactory(mode);
 
         try {
             this.slaves = getUnmodifiableSlavesMap(slaves);
@@ -132,6 +117,16 @@ public abstract class AbstractMaster implements Master {
         }
 
         LOG.info("{} initialized.", getName());
+    }
+
+    /**
+     * Short-params constructor.
+     *
+     * @param name   master name
+     * @param slaves slaves
+     */
+    protected AbstractMaster(String name, Slave... slaves) {
+        this(name, Mode.SELECTING, slaves);
     }
 
     private static Map<String, Slave> getUnmodifiableSlavesMap(Slave[] slaves) {
@@ -210,7 +205,7 @@ public abstract class AbstractMaster implements Master {
             LOG.warn("{} aren't registered on failed requests set.", requests);
 
         requests.forEach(request -> {
-            final Runnable listenerTask = new ListenerTask(dispatcherService);
+            final Runnable listenerTask = factory.make(dispatcherService);
             final Callable<Request> sendingTask = new SendingTask(request);
 
             closeLock.readLock().lock();
@@ -282,6 +277,16 @@ public abstract class AbstractMaster implements Master {
     @Override
     public Collection<Slave> getSlaves() {
         return new ArrayList<>(slaves.values());
+    }
+
+    /**
+     * Returns repeat delivery mode is used by this master instance.
+     *
+     * @return repeat delivery mode
+     */
+    @Override
+    public Mode getDeliveryMode() {
+        return factory.mode;
     }
 
     /**
@@ -391,12 +396,45 @@ public abstract class AbstractMaster implements Master {
         }
     }
 
-    private class ListenerTask implements Runnable {
+    @SuppressWarnings("Duplicates")
+    private class BroadcastingListenerTask extends ListenerTask {
+        BroadcastingListenerTask(CompletionService<Request> service) {
+            super(service);
+        }
 
-        private final CompletionService<Request> service;
+        @Override
+        protected void scheduleRejectedRequest(Request oldRequest) {
+            final Request newRequest = oldRequest.incAttemptAndReturn();
 
-        ListenerTask(CompletionService<Request> service) {
-            this.service = service;
+            long delay = newRequest.repeatDate - System.currentTimeMillis();
+
+            Request logRequest;
+            boolean registered;
+
+            final Runnable task = new ScheduledTask(newRequest);
+            closeLock.readLock().lock();
+            try {
+                if (!closed) {
+                    registered = register(logRequest = newRequest);
+                    scheduler.schedule(task, delay, TimeUnit.MILLISECONDS);
+
+                    LOG.debug("{} is scheduled to be sent again.", logRequest);
+                } else
+                    registered = register(
+                            logRequest = oldRequest.setCodeAndReturn(Request.Code.UNDELIVERED));
+            } finally {
+                closeLock.readLock().unlock();
+            }
+
+            if (!registered)
+                LOG.warn("{} isn't registered on failed requests set.", logRequest);
+        }
+    }
+
+    @SuppressWarnings("Duplicates")
+    private class SelectingListenerTask extends ListenerTask {
+        SelectingListenerTask(CompletionService<Request> service) {
+            super(service);
         }
 
         private boolean hasYoungestProjectVersion(Request oldRequest) {
@@ -404,6 +442,49 @@ public abstract class AbstractMaster implements Master {
                     .filter(r -> r.slave == oldRequest.slave)
                     .filter(r -> Objects.equals(r.project.id, oldRequest.project.id))
                     .allMatch(r -> r.project.version < oldRequest.project.version);
+        }
+
+        @Override
+        protected void scheduleRejectedRequest(Request oldRequest) {
+            final Request newRequest = oldRequest.incAttemptAndReturn();
+
+            boolean youngestVersion = hasYoungestProjectVersion(oldRequest);
+
+            long delay = newRequest.repeatDate - System.currentTimeMillis();
+
+            Request logRequest;
+            boolean registered;
+
+            if (youngestVersion) {
+                final Runnable task = new ScheduledTask(newRequest);
+                closeLock.readLock().lock();
+                try {
+                    if (!closed) {
+                        registered = register(logRequest = newRequest);
+                        scheduler.schedule(task, delay, TimeUnit.MILLISECONDS);
+
+                        LOG.debug("{} is scheduled to be sent again.", logRequest);
+                    } else
+                        registered = register(
+                                logRequest = oldRequest.setCodeAndReturn(Request.Code.UNDELIVERED));
+                } finally {
+                    closeLock.readLock().unlock();
+                }
+            } else
+                registered = register(
+                        logRequest = oldRequest.setCodeAndReturn(Request.Code.OUTDATED));
+
+            if (!registered)
+                LOG.warn("{} isn't registered on failed requests set.", logRequest);
+        }
+    }
+
+    private abstract class ListenerTask implements Runnable {
+
+        private final CompletionService<Request> service;
+
+        ListenerTask(CompletionService<Request> service) {
+            this.service = service;
         }
 
         @Override
@@ -418,36 +499,7 @@ public abstract class AbstractMaster implements Master {
                     LOG.warn("{} isn't unregistered from failed requests set.", oldRequest);
 
                 if (oldRequest.code == Request.Code.REJECTED) {
-                    final Request newRequest = oldRequest.incAttemptAndReturn();
-
-                    boolean youngestVersion = hasYoungestProjectVersion(oldRequest);
-
-                    long delay = newRequest.repeatDate - System.currentTimeMillis();
-
-                    Request logRequest;
-                    boolean registered;
-
-                    if (youngestVersion) {
-                        final Runnable task = new ScheduledTask(newRequest);
-                        closeLock.readLock().lock();
-                        try {
-                            if (!closed) {
-                                registered = register(logRequest = newRequest);
-                                scheduler.schedule(task, delay, TimeUnit.MILLISECONDS);
-
-                                LOG.debug("{} is scheduled to be sent again.", logRequest);
-                            } else
-                                registered = register(
-                                        logRequest = oldRequest.setCodeAndReturn(Request.Code.UNDELIVERED));
-                        } finally {
-                            closeLock.readLock().unlock();
-                        }
-                    } else
-                        registered = register(
-                                logRequest = oldRequest.setCodeAndReturn(Request.Code.OUTDATED));
-
-                    if (!registered)
-                        LOG.warn("{} isn't registered on failed requests set.", logRequest);
+                    scheduleRejectedRequest(oldRequest);
                 } else {
                     status.incAndGetReplicatedProjects();
                 }
@@ -459,6 +511,8 @@ public abstract class AbstractMaster implements Master {
 
             LOG.trace("listenerTask: {}ms", System.currentTimeMillis() - startTime);
         }
+
+        protected abstract void scheduleRejectedRequest(Request oldRequest);
     }
 
     private class ScheduledTask implements Runnable {
@@ -475,7 +529,7 @@ public abstract class AbstractMaster implements Master {
             closeLock.readLock().lock();
             try {
                 if (!closed) {
-                    listener.execute(new ListenerTask(repeaterService));
+                    listener.execute(factory.make(repeaterService));
                     repeaterService.submit(new SendingTask(request));
                 }
             } finally {
@@ -512,6 +566,70 @@ public abstract class AbstractMaster implements Master {
             } finally {
                 LOG.trace("sendingTask: {}ms", System.currentTimeMillis() - startTime);
             }
+        }
+    }
+
+    /**
+     * Factory to generate a new listener task having proper repeat delivery mode.
+     */
+    private class ListenerTaskFactory {
+
+        final Mode mode;
+
+        private final ListenerTaskGenerator generator;
+
+        ListenerTaskFactory(Mode mode) {
+            switch (mode) {
+                case BROADCASTING:
+                    generator = BroadcastingListenerTask::new;
+                    break;
+                case SELECTING:
+                    generator = SelectingListenerTask::new;
+                    break;
+                default:
+                    throw new IllegalArgumentException("Master mode = " + mode + " doesn't exist!");
+            }
+
+            this.mode = mode;
+        }
+
+        ListenerTask make(CompletionService<Request> service) {
+            return generator.make(service);
+        }
+    }
+
+    /**
+     * Generates listener task having type in according to master delivery mode.
+     */
+    private interface ListenerTaskGenerator {
+
+        /**
+         * Makes a new listener task.
+         *
+         * @param service service
+         * @return listener task
+         */
+        ListenerTask make(CompletionService<Request> service);
+
+    }
+
+    /**
+     * Creates thread factory instance which assigns a thread name according to the given name.
+     */
+    private class NamedThreadFactory implements ThreadFactory {
+
+        private final AtomicInteger counter = new AtomicInteger();
+        private final String poolName;
+
+        NamedThreadFactory(String poolName) {
+            this.poolName = poolName;
+        }
+
+        @Override
+        public Thread newThread(Runnable r) {
+            Thread t = new Thread(r);
+            t.setName(String.format("%s-%d", poolName, counter.incrementAndGet()));
+            return t;
         }
     }
 }

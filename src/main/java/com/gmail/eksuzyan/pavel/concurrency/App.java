@@ -40,6 +40,7 @@ public class App {
         Thread.currentThread().setName("mainThread");
 
         master = new HealthyMaster(
+                Master.Mode.BROADCASTING,
                 new HealthySlave("healthy-1"),
                 new ThrowingSlave("throwiny-1", 0.3),
                 new HealthySlave("healthy-3"),
@@ -101,6 +102,7 @@ public class App {
         LOG.info("======================= {} =======================", master.getName().toUpperCase());
         LOG.info("Projects:  {}{}", System.lineSeparator(), printProjects(masterProjects));
         LOG.info("Failed:    {}{}", System.lineSeparator(), printRequests(masterRequests));
+        LOG.info("Repeat delivery mode: {}", master.getDeliveryMode());
 
         for (Slave slave : master.getSlaves()) {
             Collection<Project> slaveProjects = slave.getProjects().stream()
