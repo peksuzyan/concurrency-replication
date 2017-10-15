@@ -1,15 +1,12 @@
 package com.gmail.eksuzyan.pavel.concurrency.logic.slave.impl;
 
-import com.gmail.eksuzyan.pavel.concurrency.logic.entities.Project;
-import com.gmail.eksuzyan.pavel.concurrency.logic.slave.AbstractSlave;
-
-import java.util.Collection;
+import com.gmail.eksuzyan.pavel.concurrency.logic.slave.DefaultSlave;
 
 /**
  * @author Pavel Eksuzian.
  *         Created: 09.07.2017.
  */
-public class AlwaysThrowingSlave extends AbstractSlave {
+public class AlwaysThrowingSlave extends DefaultSlave {
 
     public AlwaysThrowingSlave() {
         this(null);
@@ -22,15 +19,5 @@ public class AlwaysThrowingSlave extends AbstractSlave {
     @Override
     public void postProject(String projectId, long version, String data) throws Exception {
         throw new Exception();
-    }
-
-    @Override
-    public Collection<Project> getProjects() {
-        return getProjectsDefault();
-    }
-
-    @Override
-    public void close() {
-        shutdownDefault();
     }
 }

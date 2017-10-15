@@ -2,7 +2,7 @@ package com.gmail.eksuzyan.pavel.concurrency.performance;
 
 import com.gmail.eksuzyan.pavel.concurrency.util.config.MasterProperties;
 import com.gmail.eksuzyan.pavel.concurrency.logic.master.Master;
-import com.gmail.eksuzyan.pavel.concurrency.logic.master.impl.HealthyMaster;
+import com.gmail.eksuzyan.pavel.concurrency.logic.master.DefaultMaster;
 import com.gmail.eksuzyan.pavel.concurrency.logic.slave.Slave;
 import com.gmail.eksuzyan.pavel.concurrency.logic.slave.impl.HealthySlave;
 import org.junit.After;
@@ -40,7 +40,7 @@ public class SlavePerformanceTest {
 
         Slave[] slaves = new Slave[]{new HealthySlave()};
 
-        master = new HealthyMaster(slaves);
+        master = new DefaultMaster(slaves);
 
         new Thread(() -> {
             int i = 0;
@@ -66,7 +66,7 @@ public class SlavePerformanceTest {
 
         Slave[] slaves = new Slave[]{new HealthySlave()};
 
-        master = new HealthyMaster(slaves);
+        master = new DefaultMaster(slaves);
 
         new Thread(() -> {
             int i = 0;
@@ -92,7 +92,7 @@ public class SlavePerformanceTest {
 
         Slave[] slaves = new Slave[]{new HealthySlave()};
 
-        master = new HealthyMaster(slaves);
+        master = new DefaultMaster(slaves);
 
         new Thread(() -> {
             int i = 0;
@@ -118,7 +118,7 @@ public class SlavePerformanceTest {
 
         Slave[] slaves = new Slave[]{new HealthySlave()};
 
-        master = new HealthyMaster(slaves);
+        master = new DefaultMaster(slaves);
 
         new Thread(() -> {
             int i = 0;
@@ -144,7 +144,7 @@ public class SlavePerformanceTest {
 
         Slave[] slaves = new Slave[]{new HealthySlave()};
 
-        master = new HealthyMaster(slaves);
+        master = new DefaultMaster(slaves);
 
         new Thread(() -> {
             int i = 0;
@@ -170,7 +170,7 @@ public class SlavePerformanceTest {
 
         Slave[] slaves = new Slave[]{new HealthySlave()};
 
-        master = new HealthyMaster(slaves);
+        master = new DefaultMaster(slaves);
 
         new Thread(() -> {
             int i = 0;
@@ -196,7 +196,7 @@ public class SlavePerformanceTest {
 
         Slave[] slaves = new Slave[]{new HealthySlave()};
 
-        master = new HealthyMaster(slaves);
+        master = new DefaultMaster(slaves);
 
         new Thread(() -> {
             int i = 0;
@@ -222,7 +222,7 @@ public class SlavePerformanceTest {
 
         Slave[] slaves = new Slave[]{new HealthySlave()};
 
-        master = new HealthyMaster(slaves);
+        master = new DefaultMaster(slaves);
 
         new Thread(() -> {
             int i = 0;

@@ -6,26 +6,24 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.stream.Collectors;
 
 /**
- * Presents a base implementation of slave interface.
+ * Presents a default implementation of slave interface.
  *
  * @author Pavel Eksuzian.
  *         Created: 03.04.2017.
  */
-public abstract class AbstractSlave implements Slave {
+public class DefaultSlave implements Slave {
 
     /**
      * Ordinary logger.
      */
-    private final static Logger LOG = LoggerFactory.getLogger(AbstractSlave.class);
+    private final static Logger LOG = LoggerFactory.getLogger(DefaultSlave.class);
 
     /**
      * Counter serves to generate unique slave ID.
@@ -62,7 +60,7 @@ public abstract class AbstractSlave implements Slave {
      *
      * @param name slave name
      */
-    protected AbstractSlave(String name) {
+    public DefaultSlave(String name) {
         long id = slaveCounter.incrementAndGet();
         this.name = (name == null || name.trim().isEmpty())
                 ? String.format("%s-%d", DEFAULT_NAME, id) : name;
@@ -87,7 +85,8 @@ public abstract class AbstractSlave implements Slave {
      * @param version   project version
      * @param data      project data
      */
-    protected final void postProjectDefault(String projectId, long version, String data) {
+    @Override
+    public void postProject(String projectId, long version, String data) throws Exception {
         long startTime = System.currentTimeMillis();
 
         closeLock.readLock().lock();
@@ -110,7 +109,7 @@ public abstract class AbstractSlave implements Slave {
 
         if (!isAdded) {
             LOG.warn("Project{id='{}', version='{}', data='{}'} is being tried to insert into slave's store one more time.", projectId, version, data);
-            postProjectDefault(projectId, version, data);
+            postProject(projectId, version, data);
             return;
         }
 
@@ -122,14 +121,16 @@ public abstract class AbstractSlave implements Slave {
      *
      * @return a set of projects
      */
-    protected final Collection<Project> getProjectsDefault() {
+    @Override
+    public Collection<Project> getProjects() {
         return new ArrayList<>(projects.values());
     }
 
     /**
      * Stops slave.
      */
-    protected final void shutdownDefault() {
+    @Override
+    public void close() {
 
         closeLock.readLock().lock();
         try {

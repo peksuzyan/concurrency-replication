@@ -3,7 +3,7 @@ package com.gmail.eksuzyan.pavel.concurrency.functionality;
 import com.gmail.eksuzyan.pavel.concurrency.util.config.MasterProperties;
 import com.gmail.eksuzyan.pavel.concurrency.logic.entities.Project;
 import com.gmail.eksuzyan.pavel.concurrency.logic.master.Master;
-import com.gmail.eksuzyan.pavel.concurrency.logic.master.impl.HealthyMaster;
+import com.gmail.eksuzyan.pavel.concurrency.logic.master.DefaultMaster;
 import com.gmail.eksuzyan.pavel.concurrency.logic.slave.Slave;
 import com.gmail.eksuzyan.pavel.concurrency.logic.slave.impl.HealthySlave;
 import org.junit.After;
@@ -33,7 +33,7 @@ public class GeneralSlaveTest {
     @Test
     public void plainTest() throws InterruptedException {
 
-        master = new HealthyMaster(new HealthySlave());
+        master = new DefaultMaster(new HealthySlave());
 
         master.postProject("project", "data");
 
@@ -51,7 +51,7 @@ public class GeneralSlaveTest {
 
         Slave[] slaves = new Slave[]{new HealthySlave()};
 
-        master = new HealthyMaster(slaves);
+        master = new DefaultMaster(slaves);
 
         new Thread(() -> {
             int i = 0;
@@ -77,7 +77,7 @@ public class GeneralSlaveTest {
 
         Slave[] slaves = new Slave[]{new HealthySlave()};
 
-        master = new HealthyMaster(slaves);
+        master = new DefaultMaster(slaves);
 
         new Thread(() -> {
             int i = 0;
@@ -103,7 +103,7 @@ public class GeneralSlaveTest {
 
         Slave[] slaves = new Slave[]{new HealthySlave()};
 
-        master = new HealthyMaster(slaves);
+        master = new DefaultMaster(slaves);
 
         new Thread(() -> {
             int i = 0;
@@ -132,7 +132,7 @@ public class GeneralSlaveTest {
 
         Slave[] slaves = new Slave[]{new HealthySlave()};
 
-        master = new HealthyMaster(slaves);
+        master = new DefaultMaster(slaves);
 
         for (Slave slave : slaves) {
             slave.close();
@@ -164,7 +164,7 @@ public class GeneralSlaveTest {
 
         Slave[] slaves = new Slave[]{new HealthySlave()};
 
-        master = new HealthyMaster(slaves);
+        master = new DefaultMaster(slaves);
 
         for (Slave slave : slaves) {
             slave.close();

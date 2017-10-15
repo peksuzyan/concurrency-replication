@@ -4,7 +4,7 @@ import com.gmail.eksuzyan.pavel.concurrency.util.config.MasterProperties;
 import com.gmail.eksuzyan.pavel.concurrency.logic.entities.Project;
 import com.gmail.eksuzyan.pavel.concurrency.logic.entities.Request;
 import com.gmail.eksuzyan.pavel.concurrency.logic.master.Master;
-import com.gmail.eksuzyan.pavel.concurrency.logic.master.impl.HealthyMaster;
+import com.gmail.eksuzyan.pavel.concurrency.logic.master.DefaultMaster;
 import com.gmail.eksuzyan.pavel.concurrency.logic.slave.Slave;
 import com.gmail.eksuzyan.pavel.concurrency.logic.slave.impl.AlwaysThrowingSlave;
 import com.gmail.eksuzyan.pavel.concurrency.logic.slave.impl.HealthySlave;
@@ -43,7 +43,7 @@ public class GeneralMasterTest {
 
         final int projectsCount = 1;
 
-        master = new HealthyMaster(null);
+        master = new DefaultMaster(null);
 
         new Thread(() -> {
             int i = 0;
@@ -67,7 +67,7 @@ public class GeneralMasterTest {
 
         final int projectsCount = 1;
 
-        master = new HealthyMaster(null);
+        master = new DefaultMaster(null);
 
         new Thread(() -> {
             int i = 0;
@@ -91,7 +91,7 @@ public class GeneralMasterTest {
 
         final int projectsCount = 2;
 
-        master = new HealthyMaster(null);
+        master = new DefaultMaster(null);
 
         new Thread(() -> {
             int i = 0;
@@ -110,7 +110,7 @@ public class GeneralMasterTest {
 
     @Test(expected = IllegalArgumentException.class)
     public void postWithNullIdAndGetProjects() {
-        Master master = new HealthyMaster();
+        Master master = new DefaultMaster();
         master.postProject(null, "city");
     }
 
@@ -119,7 +119,7 @@ public class GeneralMasterTest {
 
         final int projectsCount = 1;
 
-        master = new HealthyMaster();
+        master = new DefaultMaster();
 
         master.postProject("project", null);
 
@@ -135,7 +135,7 @@ public class GeneralMasterTest {
 
         final int projectsCount = 1;
 
-        master = new HealthyMaster(new AlwaysThrowingSlave());
+        master = new DefaultMaster(new AlwaysThrowingSlave());
 
         new Thread(() -> {
             int i = 0;
@@ -165,7 +165,7 @@ public class GeneralMasterTest {
 
         final int projectsCount = 1;
 
-        master = new HealthyMaster(new HealthySlave());
+        master = new DefaultMaster(new HealthySlave());
 
         new Thread(() -> {
             int i = 0;
@@ -191,7 +191,7 @@ public class GeneralMasterTest {
 
         final int projectsCount = 1;
 
-        master = new HealthyMaster(null);
+        master = new DefaultMaster(null);
 
         new Thread(() -> {
             int i = 0;
@@ -217,7 +217,7 @@ public class GeneralMasterTest {
 
         final int projectsCount = 1;
 
-        master = new HealthyMaster(new AlwaysThrowingSlave());
+        master = new DefaultMaster(new AlwaysThrowingSlave());
 
         new Thread(() -> {
             int i = 0;
@@ -247,7 +247,7 @@ public class GeneralMasterTest {
 
         Slave[] slaves = new Slave[]{new HealthySlave()};
 
-        master = new HealthyMaster(slaves);
+        master = new DefaultMaster(slaves);
 
         master.getSlaves().add(new HealthySlave());
 
@@ -257,7 +257,7 @@ public class GeneralMasterTest {
     @Test(expected = IllegalStateException.class)
     public void closeMasterAndPostProject() throws InterruptedException, IOException {
 
-        master = new HealthyMaster(null);
+        master = new DefaultMaster(null);
 
         master.close();
 
@@ -267,7 +267,7 @@ public class GeneralMasterTest {
     @Test(expected = IllegalStateException.class)
     public void closeMasterAndCloseAgain() throws InterruptedException, IOException {
 
-        master = new HealthyMaster(null);
+        master = new DefaultMaster(null);
 
         master.close();
 

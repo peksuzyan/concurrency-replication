@@ -1,15 +1,12 @@
 package com.gmail.eksuzyan.pavel.concurrency.logic.slave.impl;
 
-import com.gmail.eksuzyan.pavel.concurrency.logic.entities.Project;
-import com.gmail.eksuzyan.pavel.concurrency.logic.slave.AbstractSlave;
-
-import java.util.Collection;
+import com.gmail.eksuzyan.pavel.concurrency.logic.slave.DefaultSlave;
 
 /**
  * @author Pavel Eksuzian.
  *         Created: 22.03.2017.
  */
-public class ThrowingSlave extends AbstractSlave {
+public class ThrowingSlave extends DefaultSlave {
 
     private final double limit;
 
@@ -25,16 +22,6 @@ public class ThrowingSlave extends AbstractSlave {
     @Override
     public void postProject(String projectId, long version, String data) throws Exception {
         if (Math.random() > limit) throw new Exception();
-        postProjectDefault(projectId, version, data);
-    }
-
-    @Override
-    public Collection<Project> getProjects() {
-        return getProjectsDefault();
-    }
-
-    @Override
-    public void close() {
-        shutdownDefault();
+        super.postProject(projectId, version, data);
     }
 }

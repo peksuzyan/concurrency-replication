@@ -3,7 +3,7 @@ package com.gmail.eksuzyan.pavel.concurrency;
 import com.gmail.eksuzyan.pavel.concurrency.logic.entities.Project;
 import com.gmail.eksuzyan.pavel.concurrency.logic.entities.Request;
 import com.gmail.eksuzyan.pavel.concurrency.logic.master.Master;
-import com.gmail.eksuzyan.pavel.concurrency.logic.master.impl.HealthyMaster;
+import com.gmail.eksuzyan.pavel.concurrency.logic.master.DefaultMaster;
 import com.gmail.eksuzyan.pavel.concurrency.logic.slave.Slave;
 import com.gmail.eksuzyan.pavel.concurrency.logic.slave.impl.HealthySlave;
 import com.gmail.eksuzyan.pavel.concurrency.logic.slave.impl.PendingSlave;
@@ -39,7 +39,7 @@ public class App {
 
         Thread.currentThread().setName("mainThread");
 
-        master = new HealthyMaster(
+        master = new DefaultMaster(
                 Master.Mode.BROADCASTING,
                 new HealthySlave("healthy-1"),
                 new ThrowingSlave("throwiny-1", 0.3),

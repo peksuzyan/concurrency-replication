@@ -17,17 +17,17 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
- * Presents a base implementation of master interface.
+ * Presents a default implementation of master interface.
  *
  * @author Pavel Eksuzian.
  *         Created: 04.04.2017.
  */
-public abstract class AbstractMaster implements Master {
+public class DefaultMaster implements Master {
 
     /**
      * Ordinary logger.
      */
-    private final static Logger LOG = LoggerFactory.getLogger(AbstractMaster.class);
+    private final static Logger LOG = LoggerFactory.getLogger(DefaultMaster.class);
 
     /**
      * Counter serves to generate unique master ID.
@@ -94,14 +94,25 @@ public abstract class AbstractMaster implements Master {
     private final CompletionService<Request> repeaterService =
             new ExecutorCompletionService<>(repeater);
 
+    public DefaultMaster(Slave... slaves) {
+        this(null, Mode.SELECTING, slaves);
+    }
+
+    public DefaultMaster(String name, Slave... slaves) {
+        this(name, Mode.SELECTING, slaves);
+    }
+
+    public DefaultMaster(Mode mode, Slave... slaves) {
+        this(null, mode, slaves);
+    }
+
     /**
      * Extended constructor.
-     *
-     * @param name   master name
+     *  @param name   master name
      * @param mode   strategy mode
      * @param slaves slaves
      */
-    protected AbstractMaster(String name, Mode mode, Slave... slaves) {
+    public DefaultMaster(String name, Mode mode, Slave... slaves) {
         long id = masterCounter.incrementAndGet();
         this.name = (name == null || name.trim().isEmpty())
                 ? String.format("%s-%d", DEFAULT_NAME, id) : name;
@@ -117,16 +128,6 @@ public abstract class AbstractMaster implements Master {
         }
 
         LOG.info("{} initialized.", getName());
-    }
-
-    /**
-     * Short-params constructor.
-     *
-     * @param name   master name
-     * @param slaves slaves
-     */
-    protected AbstractMaster(String name, Slave... slaves) {
-        this(name, Mode.SELECTING, slaves);
     }
 
     private static Map<String, Slave> getUnmodifiableSlavesMap(Slave[] slaves) {
@@ -145,7 +146,7 @@ public abstract class AbstractMaster implements Master {
      * @param projectId project id
      * @param data      project data
      */
-    protected void postProjectDefault(String projectId, String data) {
+    public void postProject(String projectId, String data) {
         long startTime = System.currentTimeMillis();
 
         if (projectId == null)
@@ -265,7 +266,8 @@ public abstract class AbstractMaster implements Master {
      *
      * @return projects
      */
-    protected Collection<Project> getProjectsDefault() {
+    @Override
+    public Collection<Project> getProjects() {
         return new ArrayList<>(projects.values());
     }
 
@@ -294,7 +296,8 @@ public abstract class AbstractMaster implements Master {
      *
      * @return requests
      */
-    protected Collection<Request> getFailedDefault() {
+    @Override
+    public Collection<Request> getFailed() {
         return new ArrayList<>(failed);
     }
 
@@ -318,7 +321,8 @@ public abstract class AbstractMaster implements Master {
     /**
      * Stops workers and thread pools.
      */
-    protected void shutdownDefault() {
+    @Override
+    public void close() {
         long startTime = System.currentTimeMillis();
 
         closeLock.readLock().lock();
@@ -390,7 +394,7 @@ public abstract class AbstractMaster implements Master {
         public void run() {
             long startTime = System.currentTimeMillis();
 
-            AbstractMaster.this.prepareProject(projectId, data);
+            DefaultMaster.this.prepareProject(projectId, data);
 
             LOG.trace("preparationTask: {}ms", System.currentTimeMillis() - startTime);
         }

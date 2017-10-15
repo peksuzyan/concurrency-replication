@@ -71,12 +71,12 @@ public interface Master extends Closeable {
     enum Mode {
 
         /**
-         * Schedule to deliver even those requests which are older then other ones.
+         * Schedule to deliver even those rejected requests which are older then other ones.
          */
         BROADCASTING,
 
         /**
-         * Schedule to deliver only those requests which are youngest.
+         * Schedule to deliver only those rejected requests which are youngest.
          */
         SELECTING
     }

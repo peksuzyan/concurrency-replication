@@ -2,7 +2,7 @@ package com.gmail.eksuzyan.pavel.concurrency.performance;
 
 import com.gmail.eksuzyan.pavel.concurrency.util.config.MasterProperties;
 import com.gmail.eksuzyan.pavel.concurrency.logic.master.Master;
-import com.gmail.eksuzyan.pavel.concurrency.logic.master.impl.HealthyMaster;
+import com.gmail.eksuzyan.pavel.concurrency.logic.master.DefaultMaster;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
@@ -32,7 +32,7 @@ public class MasterPerformanceTest {
     @Test
     public void postProject() throws InterruptedException {
 
-        master = new HealthyMaster();
+        master = new DefaultMaster();
 
         master.postProject("country", "city");
 
@@ -44,7 +44,7 @@ public class MasterPerformanceTest {
     @Test
     public void postProjects() throws InterruptedException {
 
-        master = new HealthyMaster();
+        master = new DefaultMaster();
 
         master.postProject("country_1", "city");
         master.postProject("country_2", "city");
@@ -57,7 +57,7 @@ public class MasterPerformanceTest {
     @Test
     public void postProjectsWithTheSameIds() throws InterruptedException {
 
-        master = new HealthyMaster();
+        master = new DefaultMaster();
 
         master.postProject("country", "city_1");
         master.postProject("country", "city_2");
@@ -74,7 +74,7 @@ public class MasterPerformanceTest {
 
         final int projectsCount = 1_000_000;
 
-        master = new HealthyMaster();
+        master = new DefaultMaster();
 
         new Thread(() -> {
             int i = 0;
@@ -98,7 +98,7 @@ public class MasterPerformanceTest {
 
         final int projectsCount = 1_000_000;
 
-        master = new HealthyMaster();
+        master = new DefaultMaster();
 
         new Thread(() -> {
             int i = 0;

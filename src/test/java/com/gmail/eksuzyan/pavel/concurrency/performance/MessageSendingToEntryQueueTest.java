@@ -2,7 +2,7 @@ package com.gmail.eksuzyan.pavel.concurrency.performance;
 
 import com.gmail.eksuzyan.pavel.concurrency.util.config.MasterProperties;
 import com.gmail.eksuzyan.pavel.concurrency.logic.master.Master;
-import com.gmail.eksuzyan.pavel.concurrency.logic.master.impl.HealthyMaster;
+import com.gmail.eksuzyan.pavel.concurrency.logic.master.DefaultMaster;
 import com.gmail.eksuzyan.pavel.concurrency.logic.slave.Slave;
 import com.gmail.eksuzyan.pavel.concurrency.logic.slave.impl.HealthySlave;
 import com.gmail.eksuzyan.pavel.concurrency.logic.slave.impl.PendingSlave;
@@ -25,7 +25,7 @@ public class MessageSendingToEntryQueueTest {
     @Test(timeout = 5_000)
     public void testOneThreadWithManyMessagesEqualProjects() {
 
-        Master master = new HealthyMaster(
+        Master master = new DefaultMaster(
                 new HealthySlave());
 
         final int projects = 1_000_000;
@@ -38,7 +38,7 @@ public class MessageSendingToEntryQueueTest {
     @Test(timeout = 5_000)
     public void testOneThreadWithManyMessagesUniqueProjects() {
 
-        Master master = new HealthyMaster(
+        Master master = new DefaultMaster(
                 new HealthySlave());
 
         final int projects = 1_000_000;
@@ -51,7 +51,7 @@ public class MessageSendingToEntryQueueTest {
     @Test(timeout = 10_000)
     public void testManyThreadsWithOneMessageEqualProjects() throws InterruptedException {
 
-        Master master = new HealthyMaster(
+        Master master = new DefaultMaster(
                 new HealthySlave());
 
         final int threadsCount = 10_000;
@@ -81,7 +81,7 @@ public class MessageSendingToEntryQueueTest {
     @Test(timeout = 10_000)
     public void testManyThreadsWithOneMessageUniqueProjects() throws InterruptedException {
 
-        Master master = new HealthyMaster(
+        Master master = new DefaultMaster(
                 new HealthySlave());
 
         final int threadsCount = 10_000;
@@ -117,7 +117,7 @@ public class MessageSendingToEntryQueueTest {
         MasterProperties.setSchedulerThreadPoolSize(1);
         MasterProperties.setRepeaterThreadPoolSize(1);
 
-        Master master = new HealthyMaster(
+        Master master = new DefaultMaster(
                 new HealthySlave());
 
         final int messagesPerThread = 10;
@@ -150,7 +150,7 @@ public class MessageSendingToEntryQueueTest {
     @Test(timeout = 10_000)
     public void testManyThreadsWithManyMessagesEqualProjects() throws InterruptedException {
 
-        Master master = new HealthyMaster(
+        Master master = new DefaultMaster(
                 new HealthySlave());
 
         final int messagesPerThread = 10;
@@ -189,7 +189,7 @@ public class MessageSendingToEntryQueueTest {
             slaves[i] = new HealthySlave();
         }
 
-        Master master = new HealthyMaster(slaves);
+        Master master = new DefaultMaster(slaves);
 
         final int messagesPerThread = 10;
         final int threadsCount = 10_000;
@@ -228,7 +228,7 @@ public class MessageSendingToEntryQueueTest {
             slaves[i] = new PendingSlave();
         }
 
-        Master master = new HealthyMaster(slaves);
+        Master master = new DefaultMaster(slaves);
 
         final int messagesPerThread = 10;
         final int threadsCount = 10_000;
@@ -267,7 +267,7 @@ public class MessageSendingToEntryQueueTest {
             slaves[i] = new ThrowingSlave();
         }
 
-        Master master = new HealthyMaster(slaves);
+        Master master = new DefaultMaster(slaves);
 
         final int messagesPerThread = 10;
         final int threadsCount = 10_000;
@@ -308,7 +308,7 @@ public class MessageSendingToEntryQueueTest {
             slaves.add(new ThrowingSlave());
         }
 
-        Master master = new HealthyMaster(slaves.toArray(new Slave[slaves.size()]));
+        Master master = new DefaultMaster(slaves.toArray(new Slave[slaves.size()]));
 
         final int messagesPerThread = 10;
         final int threadsCount = 10_000;

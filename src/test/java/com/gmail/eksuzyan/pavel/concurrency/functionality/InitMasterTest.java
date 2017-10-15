@@ -1,7 +1,7 @@
 package com.gmail.eksuzyan.pavel.concurrency.functionality;
 
 import com.gmail.eksuzyan.pavel.concurrency.logic.master.Master;
-import com.gmail.eksuzyan.pavel.concurrency.logic.master.impl.HealthyMaster;
+import com.gmail.eksuzyan.pavel.concurrency.logic.master.DefaultMaster;
 import com.gmail.eksuzyan.pavel.concurrency.logic.slave.Slave;
 import com.gmail.eksuzyan.pavel.concurrency.logic.slave.impl.HealthySlave;
 import org.junit.Assert;
@@ -16,7 +16,7 @@ public class InitMasterTest {
     @Test
     public void passCorrectName() {
         String name = "Igor";
-        Master master = new HealthyMaster(name);
+        Master master = new DefaultMaster(name);
         Assert.assertEquals(name, master.getName());
     }
 
@@ -24,20 +24,20 @@ public class InitMasterTest {
     @Test
     public void passNameAsNull() {
         String name = null;
-        Master master = new HealthyMaster(name);
+        Master master = new DefaultMaster(name);
         Assert.assertNotNull(master.getName());
     }
 
     @Test
     public void passNameAsEmpty() {
         String name = "";
-        Master master = new HealthyMaster(name);
+        Master master = new DefaultMaster(name);
         Assert.assertNotEquals(name, master.getName());
     }
 
     @Test
     public void passNoSlaves() {
-        Master master = new HealthyMaster();
+        Master master = new DefaultMaster();
         Assert.assertEquals(0, master.getSlaves().size());
     }
 
@@ -45,33 +45,33 @@ public class InitMasterTest {
     @Test
     public void passSlavesAsNull() {
         Slave[] slaves = null;
-        Master master = new HealthyMaster(slaves);
+        Master master = new DefaultMaster(slaves);
         Assert.assertEquals(0, master.getSlaves().size());
     }
 
     @SuppressWarnings("RedundantArrayCreation")
     @Test
     public void passSlavesAsEmptyArray() {
-        Master master = new HealthyMaster(new Slave[0]);
+        Master master = new DefaultMaster(new Slave[0]);
         Assert.assertEquals(0, master.getSlaves().size());
     }
 
     @Test(expected = IllegalArgumentException.class)
     public void passSlavesWithNull() {
         Slave[] slaves = new Slave[]{null};
-        Master master = new HealthyMaster(slaves);
+        Master master = new DefaultMaster(slaves);
     }
 
     @Test
     public void passSingleSlave() {
-        Master master = new HealthyMaster(new HealthySlave());
+        Master master = new DefaultMaster(new HealthySlave());
         Assert.assertEquals(1, master.getSlaves().size());
     }
 
     @Test(expected = IllegalArgumentException.class)
     public void passTheSameSlaves() {
         Slave slave = new HealthySlave();
-        Master master = new HealthyMaster(slave, slave);
+        Master master = new DefaultMaster(slave, slave);
     }
 
     @Test
@@ -82,7 +82,7 @@ public class InitMasterTest {
             slaves[i] = new HealthySlave("my_slave_" + (i + 1));
         }
 
-        Master master = new HealthyMaster(slaves);
+        Master master = new DefaultMaster(slaves);
 
         Assert.assertEquals(slaves.length, master.getSlaves().size());
     }
@@ -97,7 +97,7 @@ public class InitMasterTest {
 
         slaves[slaves.length / 2] = new HealthySlave("my_slave_1");
 
-        Master master = new HealthyMaster(slaves);
+        Master master = new DefaultMaster(slaves);
     }
 
 }
