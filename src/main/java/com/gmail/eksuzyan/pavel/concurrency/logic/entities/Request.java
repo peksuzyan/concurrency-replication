@@ -2,14 +2,13 @@ package com.gmail.eksuzyan.pavel.concurrency.logic.entities;
 
 import com.gmail.eksuzyan.pavel.concurrency.logic.slave.Slave;
 
-import java.io.Serializable;
 import java.util.Objects;
 
 /**
  * @author Pavel Eksuzian.
  *         Created: 12.03.2017.
  */
-public class Request<T extends Serializable> {
+public class Request<T> {
 
     public final Project<T> project;
     public final Slave<T> slave;

@@ -3,7 +3,6 @@ package com.gmail.eksuzyan.pavel.concurrency.logic.slave;
 import com.gmail.eksuzyan.pavel.concurrency.logic.entities.Project;
 
 import java.io.Closeable;
-import java.io.Serializable;
 import java.util.Collection;
 
 /**
@@ -12,7 +11,7 @@ import java.util.Collection;
  * @author Pavel Eksuzian.
  *         Created: 03.04.2017.
  */
-public interface Slave<T extends Serializable> extends Closeable {
+public interface Slave<T> extends Closeable {
 
     /**
      * Posts a new project version into store.

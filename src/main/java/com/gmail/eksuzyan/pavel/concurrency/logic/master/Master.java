@@ -5,7 +5,6 @@ import com.gmail.eksuzyan.pavel.concurrency.logic.entities.Request;
 import com.gmail.eksuzyan.pavel.concurrency.logic.slave.Slave;
 
 import java.io.Closeable;
-import java.io.Serializable;
 import java.util.Collection;
 
 /**
@@ -15,7 +14,7 @@ import java.util.Collection;
  * @author Pavel Eksuzian.
  *         Created: 04.04.2017.
  */
-public interface Master<T extends Serializable> extends Closeable {
+public interface Master<T> extends Closeable {
 
     /**
      * Posts a project to inner store and related slaves.

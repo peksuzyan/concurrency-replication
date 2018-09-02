@@ -4,7 +4,6 @@ import com.gmail.eksuzyan.pavel.concurrency.logic.entities.Project;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Objects;
@@ -19,7 +18,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  * @author Pavel Eksuzian.
  *         Created: 03.04.2017.
  */
-public class DefaultSlave<T extends Serializable> implements Slave<T> {
+public class DefaultSlave<T> implements Slave<T> {
 
     /**
      * Ordinary logger.

@@ -8,7 +8,6 @@ import com.gmail.eksuzyan.pavel.concurrency.util.jmx.Status;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.Serializable;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -23,7 +22,7 @@ import java.util.stream.Stream;
  * @author Pavel Eksuzian.
  *         Created: 04.04.2017.
  */
-public class DefaultMaster<T extends Serializable> implements Master<T> {
+public class DefaultMaster<T> implements Master<T> {
 
     /**
      * Ordinary logger.
@@ -307,13 +306,6 @@ public class DefaultMaster<T extends Serializable> implements Master<T> {
         return new ArrayList<>(failed);
     }
 
-    /**
-     * Shutdowns and awaits specified executor with given name.
-     *
-     * @param executor executor
-     * @param executorName executor name
-     * @throws InterruptedException if thread is interrupted while executor is shutting down
-     */
     private void shutdownAndAwait(ExecutorService executor, String executorName) throws InterruptedException {
         long startTime = System.currentTimeMillis();
 
@@ -413,9 +405,6 @@ public class DefaultMaster<T extends Serializable> implements Master<T> {
         }
     }
 
-    /**
-     * Specific broadcast task to send projects.
-     */
     @SuppressWarnings("Duplicates")
     private class BroadcastingListenerTask extends ListenerTask {
         BroadcastingListenerTask(CompletionService<Request<T>> service) {
@@ -451,9 +440,6 @@ public class DefaultMaster<T extends Serializable> implements Master<T> {
         }
     }
 
-    /**
-     * Specific broadcast task to send projects.
-     */
     @SuppressWarnings("Duplicates")
     private class SelectingListenerTask extends ListenerTask {
         SelectingListenerTask(CompletionService<Request<T>> service) {
@@ -502,9 +488,6 @@ public class DefaultMaster<T extends Serializable> implements Master<T> {
         }
     }
 
-    /**
-     * Abstract listener task encapsulating common behaviour when project is sent.
-     */
     private abstract class ListenerTask implements Runnable {
 
         private final CompletionService<Request<T>> service;
@@ -541,9 +524,6 @@ public class DefaultMaster<T extends Serializable> implements Master<T> {
         protected abstract void scheduleRejectedRequest(Request<T> oldRequest);
     }
 
-    /**
-     * Contains request till it'll be ready to be sent again.
-     */
     private class ScheduledTask implements Runnable {
         private final Request<T> request;
 
