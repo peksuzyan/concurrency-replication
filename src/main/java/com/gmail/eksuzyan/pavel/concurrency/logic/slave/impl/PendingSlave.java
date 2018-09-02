@@ -6,7 +6,7 @@ import com.gmail.eksuzyan.pavel.concurrency.logic.slave.DefaultSlave;
  * @author Pavel Eksuzian.
  *         Created: 22.03.2017.
  */
-public class PendingSlave extends DefaultSlave<String> {
+public class PendingSlave extends DefaultSlave {
 
     public PendingSlave() {
         this(null);

@@ -6,7 +6,7 @@ import com.gmail.eksuzyan.pavel.concurrency.logic.slave.DefaultSlave;
  * @author Pavel Eksuzian.
  *         Created: 22.03.2017.
  */
-public class ThrowingSlave extends DefaultSlave<String> {
+public class ThrowingSlave extends DefaultSlave {
 
     private final double limit;
 

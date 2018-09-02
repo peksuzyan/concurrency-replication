@@ -31,7 +31,7 @@ public class App {
 
     private final static Duration DELAY = Duration.of(60, ChronoUnit.SECONDS);
 
-    private static Master<String> master;
+    private static Master master;
 
     private static ExecutorService generator = Executors.newFixedThreadPool(5);
 
@@ -39,7 +39,7 @@ public class App {
 
         Thread.currentThread().setName("mainThread");
 
-        master = new DefaultMaster<>(
+        master = new DefaultMaster(
                 Master.Mode.BROADCASTING,
                 new HealthySlave("healthy-1"),
                 new ThrowingSlave("throwiny-1", 0.3),
@@ -94,8 +94,8 @@ public class App {
 
         master.close();
 
-        Collection<Request<String>> masterRequests = master.getFailed();
-        Collection<Project<String>> masterProjects = master.getProjects().stream()
+        Collection<Request> masterRequests = master.getFailed();
+        Collection<Project> masterProjects = master.getProjects().stream()
                 .sorted(Comparator.comparing(project -> project.id))
                 .collect(Collectors.toList());
 
@@ -104,8 +104,8 @@ public class App {
         LOG.info("Failed:    {}{}", System.lineSeparator(), printRequests(masterRequests));
         LOG.info("Repeat delivery mode: {}", master.getDeliveryMode());
 
-        for (Slave<String> slave : master.getSlaves()) {
-            Collection<Project<String>> slaveProjects = slave.getProjects().stream()
+        for (Slave slave : master.getSlaves()) {
+            Collection<Project> slaveProjects = slave.getProjects().stream()
                     .sorted(Comparator.comparing(project -> project.id))
                     .collect(Collectors.toList());
 
@@ -126,14 +126,14 @@ public class App {
         generator.execute(new DeliverTask(projectId, data));
     }
 
-    private static String printProjects(Collection<Project<String>> projects) {
+    private static String printProjects(Collection<Project> projects) {
         return projects.stream()
                 .sorted(Comparator.comparing(project -> project.id))
                 .map(Project::toString)
                 .collect(Collectors.joining(System.lineSeparator()));
     }
 
-    private static String printRequests(Collection<Request<String>> projects) {
+    private static String printRequests(Collection<Request> projects) {
         return projects.stream()
                 .map(Request::toString)
                 .collect(Collectors.joining(System.lineSeparator()));

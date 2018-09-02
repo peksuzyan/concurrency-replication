@@ -6,26 +6,26 @@ import java.util.Objects;
  * @author Pavel Eksuzian.
  *         Created: 12.03.2017.
  */
-public class Project<T> {
+public class Project {
 
     public final String id;
     public final long version;
-    public final T data;
+    public final String data;
 
     private static final long FIRST_VERSION = 1L;
 
-    public Project(String id, T data, long version) {
+    public Project(String id, String data, long version) {
         this.id = id;
         this.version = version;
         this.data = data;
     }
 
-    public Project(String id, T data) {
+    public Project(String id, String data) {
         this(id, data, FIRST_VERSION);
     }
 
-    public Project<T> setDataAndIncVersion(T data) {
-        return new Project<>(id, data, version + 1L);
+    public Project setDataAndIncVersion(String data) {
+        return new Project(id, data, version + 1L);
     }
 
     @Override

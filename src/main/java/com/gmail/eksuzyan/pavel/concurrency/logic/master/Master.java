@@ -10,11 +10,10 @@ import java.util.Collection;
 /**
  * Describes methods to interact with a master instance.
  *
- * @param <T> object type which are transferred for storing
  * @author Pavel Eksuzian.
  *         Created: 04.04.2017.
  */
-public interface Master<T> extends Closeable {
+public interface Master extends Closeable {
 
     /**
      * Posts a project to inner store and related slaves.
@@ -22,28 +21,28 @@ public interface Master<T> extends Closeable {
      * @param projectId project id
      * @param data      project data
      */
-    void postProject(String projectId, T data);
+    void postProject(String projectId, String data);
 
     /**
      * Returns projects which are stored by master.
      *
      * @return a set of projects
      */
-    Collection<Project<T>> getProjects();
+    Collection<Project> getProjects();
 
     /**
      * Returns requests which are failed while being posted.
      *
      * @return a set of requests
      */
-    Collection<Request<T>> getFailed();
+    Collection<Request> getFailed();
 
     /**
      * Returns slaves which are related to this master instance.
      *
      * @return a set of slaves
      */
-    Collection<Slave<T>> getSlaves();
+    Collection<Slave> getSlaves();
 
     /**
      * Sets master name.

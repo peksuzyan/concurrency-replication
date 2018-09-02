@@ -6,7 +6,7 @@ import com.gmail.eksuzyan.pavel.concurrency.logic.slave.DefaultSlave;
  * @author Pavel Eksuzian.
  *         Created: 12.03.2017.
  */
-public class HealthySlave extends DefaultSlave<String> {
+public class HealthySlave extends DefaultSlave {
 
     public HealthySlave() {
         this(null);
